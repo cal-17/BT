@@ -1,0 +1,91 @@
+#include <mbed.h>
+
+
+// Define PWM pins for the motors
+mbed::PwmOut motorA_pwm(P1_2);  // Motor A PWM pin
+mbed::PwmOut motorB_pwm(P0_27); // Motor B PWM pin
+
+
+// Define direction control pins for the motors
+mbed::DigitalOut motorA_dir(P0_4); // Motor A direction pin
+mbed::DigitalOut motorB_dir(P0_5); // Motor B direction pin
+
+
+// Initialize serial communication
+mbed::UnbufferedSerial pc(USBTX, USBRX, 9600);
+
+
+// Define motor speed (default 50%)
+float motor_speed = 0.5;
+
+
+void setMotorSpeed(float speed) {
+    motorA_pwm.write(speed);
+    motorB_pwm.write(speed);
+}
+
+
+void setMotorDirection(bool motorA_forward, bool motorB_forward) {
+    motorA_dir = motorA_forward ? 1 : 0;
+    motorB_dir = motorB_forward ? 1 : 0;
+}
+
+
+void setup() {
+    // Set PWM period for both motors
+    motorA_pwm.period(0.001); // 1 ms
+    motorB_pwm.period(0.001); // 1 ms
+
+
+    // Set initial motor speed
+    setMotorSpeed(motor_speed);
+}
+
+
+void loop() {
+    // Check if data is available in the serial buffer
+    if (pc.readable()) {
+        char command;
+        pc.read(&command, 1);
+
+
+        switch (command) {
+            case 'W': case 'w':  // Both motors forward
+                setMotorDirection(true, true);
+                break;
+                
+            case 'S': case 's':  // Both motors reverse
+                setMotorDirection(false, false);
+                break;
+                
+            case 'A': case 'a':  // Turn left (Motor A forward, Motor B reverse)
+                setMotorDirection(true, false);
+                break;
+                
+            case 'D': case 'd':  // Turn right (Motor A reverse, Motor B forward)
+                setMotorDirection(false, true);
+                break;
+
+
+            // Speed control 1-10
+            case '1': motor_speed = 0.1; break;
+            case '2': motor_speed = 0.2; break;
+            case '3': motor_speed = 0.3; break;
+            case '4': motor_speed = 0.4; break;
+            case '5': motor_speed = 0.5; break;
+            case '6': motor_speed = 0.6; break;
+            case '7': motor_speed = 0.7; break;
+            case '8': motor_speed = 0.8; break;
+            case '9': motor_speed = 0.9; break;
+            case '0': motor_speed = 1.0; break;
+
+
+            default:
+                break;
+        }
+
+
+        // Update motor speed after each command
+        setMotorSpeed(motor_speed);
+    }
+}
