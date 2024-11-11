@@ -2,90 +2,81 @@
 
 
 // Define PWM pins for the motors
-mbed::PwmOut motorA_pwm(P1_2);  // Motor A PWM pin
-mbed::PwmOut motorB_pwm(P0_27); // Motor B PWM pin
+mbed::PwmOut motorA_pwm(P1_2);  // Motor 1 PWM pin
+mbed::PwmOut motorB_pwm(P0_27); // Motor 2 PWM pin
 
 
 // Define direction control pins for the motors
-mbed::DigitalOut motorA_dir(P0_4); // Motor A direction pin
-mbed::DigitalOut motorB_dir(P0_5); // Motor B direction pin
+mbed::DigitalOut motorA_dir(P0_4); // Motor 1 direction pin
+mbed::DigitalOut motorB_dir(P0_5); // Motor 2 direction pin
 
 
-// Initialize serial communication
-mbed::UnbufferedSerial pc(USBTX, USBRX, 9600);
-
-
-// Define motor speed (default 50%)
+// Define the motor speed (between 0.0 and 1.0)
 float motor_speed = 0.5;
 
 
-void setMotorSpeed(float speed) {
-    motorA_pwm.write(speed);
-    motorB_pwm.write(speed);
-}
-
-
-void setMotorDirection(bool motorA_forward, bool motorB_forward) {
-    motorA_dir = motorA_forward ? 1 : 0;
-    motorB_dir = motorB_forward ? 1 : 0;
-}
-
-
 void setup() {
-    // Set PWM period for both motors
-    motorA_pwm.period(0.001); // 1 ms
-    motorB_pwm.period(0.001); // 1 ms
+    // Initialize Serial communication at 9600 baud rate
+    Serial.begin(9600);
+    Serial.println("Serial communication started.");
 
 
-    // Set initial motor speed
-    setMotorSpeed(motor_speed);
+    // Set PWM period (optional, depending on motor driver requirements)
+    motorA_pwm.period(0.001);  // Set PWM period to 1 ms
+    motorB_pwm.period(0.001);  // Set PWM period to 1 ms
+
+
+    // Set motor directions
+    motorA_dir = 1;  // Set motor 1 to forward direction
+    motorB_dir = 0;  // Set motor 2 to reverse direction
+
+
+    // Set motor speeds
+    motorA_pwm.write(motor_speed);  // Set speed for motor 1
+    motorB_pwm.write(motor_speed);  // Set speed for motor 2
 }
 
 
 void loop() {
-    // Check if data is available in the serial buffer
-    if (pc.readable()) {
-        char command;
-        pc.read(&command, 1);
+    // Check if data is available on the serial port
+    if (Serial.available() > 0) {
+        // Read incoming byte
+        char command = Serial.read();
 
 
-        switch (command) {
-            case 'W': case 'w':  // Both motors forward
-                setMotorDirection(true, true);
-                break;
-                
-            case 'S': case 's':  // Both motors reverse
-                setMotorDirection(false, false);
-                break;
-                
-            case 'A': case 'a':  // Turn left (Motor A forward, Motor B reverse)
-                setMotorDirection(true, false);
-                break;
-                
-            case 'D': case 'd':  // Turn right (Motor A reverse, Motor B forward)
-                setMotorDirection(false, true);
-                break;
-
-
-            // Speed control 1-10
-            case '1': motor_speed = 0.1; break;
-            case '2': motor_speed = 0.2; break;
-            case '3': motor_speed = 0.3; break;
-            case '4': motor_speed = 0.4; break;
-            case '5': motor_speed = 0.5; break;
-            case '6': motor_speed = 0.6; break;
-            case '7': motor_speed = 0.7; break;
-            case '8': motor_speed = 0.8; break;
-            case '9': motor_speed = 0.9; break;
-            case '0': motor_speed = 1.0; break;
-
-
-            default:
-                break;
+        // Check the command and adjust motor behavior accordingly
+        if (command == 'w') {  // 'f' for forward
+            motorA_dir = 1;
+            motorB_dir = 0;
+            Serial.println("Motors set to forward.");
+        } else if (command == 'a') { // 'a' for spin left}
+            motorA_dir = 1;
+            motorB_dir = 1;
+            Serial.println("Motors set to left turn");
+        } else if (command == 'd') { // 'd' for spin right}
+            motorA_dir = 0;
+            motorB_dir = 0;
+            Serial.println("Motors set to left right");
+        } else if (command == 's') {  // 's' for reverse
+            motorA_dir = 0;
+            motorB_dir = 1;
+            Serial.println("Motors set to reverse.");
+        } else if (command == 'b') {  // 's' for stop
+            motorA_pwm.write(0);
+            motorB_pwm.write(0);
+            Serial.println("Motors stopped.");
+        } else if (command == 'u') {  // 'u' for increase speed
+            motor_speed = min(motor_speed + 0.1, 1.0);
+            motorA_pwm.write(motor_speed);
+            motorB_pwm.write(motor_speed);
+            Serial.print("Motor speed increased to ");
+            Serial.println(motor_speed);
+        } else if (command == 'h') {  // 'd' for decrease speed
+            motor_speed = max(motor_speed - 0.1, 0.0);
+            motorA_pwm.write(motor_speed);
+            motorB_pwm.write(motor_speed);
+            Serial.print("Motor speed decreased to ");
+            Serial.println(motor_speed);
         }
-
-
-        // Update motor speed after each command
-        setMotorSpeed(motor_speed);
     }
 }
