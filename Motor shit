@@ -57,12 +57,39 @@ void setup() {
 
     // Attach interrupts for encoder signals
     // Attach interrupt for encoder A (Motor A) on falling edge
-
     encoderA.fall(&encoderISR_A);  // Interrupt on falling edge of Motor A encoder
     encoderB.fall(&encoderISR_B);  // Interrupt on falling edge of Motor B encoder
 
     // Start timer for speed calculation
     speedTimer.start();
+}
+
+void motorA_up() {
+    motor_speedA = min(motor_speedA + 0.1, 1.0);
+    motorA_pwm.write(motor_speedA);
+    Serial.print("Motor A speed increased to ");
+    Serial.println(motor_speedA);
+}
+
+void motorB_up() {
+    motor_speedB = min(motor_speedB + 0.1, 1.0);
+    motorB_pwm.write(motor_speedB);
+    Serial.print("Motor B speed increased to ");
+    Serial.println(motor_speedB);
+}
+
+void motorA_down() {
+    motor_speedA = max(motor_speedA - 0.1, 0.0);
+    motorA_pwm.write(motor_speedA);
+    Serial.print("Motor A speed decreased to ");
+    Serial.println(motor_speedA);
+}
+
+void motorB_down() {
+    motor_speedB = max(motor_speedB - 0.1, 0.0);
+    motorB_pwm.write(motor_speedB);
+    Serial.print("Motor B speed decreased to ");
+    Serial.println(motor_speedB);
 }
 
 void loop() {
@@ -92,7 +119,14 @@ void loop() {
             motorA_pwm.write(0);
             motorB_pwm.write(0);
             Serial.println("Motors stopped.");
-        } else if (command == 'u') {  // 'u' for increase speed
+        } else if (command == 'u') {  
+            motorA_up();
+            motorB_up();
+        } else if (command == 'h') {  
+            motorA_down();
+            motorB_down();
+        }
+/*        } else if (command == 'u') {  // 'u' for increase speed
             motor_speed = min(motor_speed + 0.1, 1.0);
             motorA_pwm.write(motor_speed);
             motorB_pwm.write(motor_speed);
@@ -103,8 +137,8 @@ void loop() {
             motorA_pwm.write(motor_speed);
             motorB_pwm.write(motor_speed);
             Serial.print("Motor speed decreased to ");
-            Serial.println(motor_speed);
-        }
+            Serial.println(motor_speed);                                
+        }                                                                   /*
     }
 
     // Calculate and print speed every second
