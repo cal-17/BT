@@ -65,31 +65,31 @@ void setup() {
 }
 
 void motorA_up() {
-    motor_speedA = min(motor_speedA + 0.1, 1.0);
-    motorA_pwm.write(motor_speedA);
+    motorSpeedA = min(motorSpeedA + 0.1, 1.0);
+    motorA_pwm.write(motorSpeedA);
     Serial.print("Motor A speed increased to ");
-    Serial.println(motor_speedA);
+    Serial.println(motorSpeedA);
 }
 
 void motorB_up() {
-    motor_speedB = min(motor_speedB + 0.1, 1.0);
-    motorB_pwm.write(motor_speedB);
+    motorSpeedB = min(motorSpeedB + 0.1, 1.0);
+    motorB_pwm.write(motorSpeedB);
     Serial.print("Motor B speed increased to ");
-    Serial.println(motor_speedB);
+    Serial.println(motorSpeedB);
 }
 
 void motorA_down() {
-    motor_speedA = max(motor_speedA - 0.1, 0.0);
-    motorA_pwm.write(motor_speedA);
+    motorSpeedA = max(motorSpeedA - 0.1, 0.0);
+    motorA_pwm.write(motorSpeedA);
     Serial.print("Motor A speed decreased to ");
-    Serial.println(motor_speedA);
+    Serial.println(motorSpeedA);
 }
 
 void motorB_down() {
-    motor_speedB = max(motor_speedB - 0.1, 0.0);
-    motorB_pwm.write(motor_speedB);
+    motorSpeedB = max(motorSpeedB - 0.1, 0.0);
+    motorB_pwm.write(motorSpeedB);
     Serial.print("Motor B speed decreased to ");
-    Serial.println(motor_speedB);
+    Serial.println(motorSpeedB);
 }
 
 void loop() {
@@ -138,7 +138,8 @@ void loop() {
             motorB_pwm.write(motor_speed);
             Serial.print("Motor speed decreased to ");
             Serial.println(motor_speed);                                
-        }                                                                   /*
+          }
+*/                                                                        
     }
 
     // Calculate and print speed every second
