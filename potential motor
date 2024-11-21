@@ -1,0 +1,290 @@
+#include <mbed.h>
+
+// Define PWM pins for the motors
+mbed::PwmOut motorA_pwm(P1_2);  // Motor 1 PWM pin
+mbed::PwmOut motorB_pwm(P0_27); // Motor 2 PWM pin
+
+// Define direction control pins for the motors
+mbed::DigitalOut motorA_dir(P0_4); // Motor 1 direction pin
+mbed::DigitalOut motorB_dir(P0_5); // Motor 2 direction pin
+
+// Define Encoder pins for Motor A and Motor B
+mbed::InterruptIn encoderA(P1_11);
+mbed::InterruptIn encoderB(P1_12);
+
+
+// Define motor speed (between 0.0 and 1.0)
+float motor_speed = 0.5;
+
+// Encoder variables for Motor A and Motor B
+int pulseCountA = 0;
+int pulseCountB = 0;
+float motorSpeedA = 0.0;  // Motor A speed
+float motorSpeedB = 0.0;  // Motor B speed
+float motorSpeedReadA = 0.0;  // Motor A speed measured in RPM
+float motorSpeedReadB = 0.0;  // Motor B speed measured in RPM
+
+// Encoder pulses per revolution (adjust to match your encoder's spec)
+float pulsesPerRevolutionA = 12.0;  // Motor A encoder PPR
+float pulsesPerRevolutionB = 12.0;  // Motor B encoder PPR
+
+mbed::Timer speedTimer;  // Timer to calculate motor speed every second
+
+int Equalized = 0;
+
+// Interrupt handler for encoder A (Motor A)
+void encoderISR_A() {
+    pulseCountA++;
+}
+
+// Interrupt handler for encoder B (Motor B)
+void encoderISR_B() {
+    pulseCountB++;
+}
+
+void setup() {
+    // Initialize Serial communication at 9600 baud rate
+    Serial.begin(9600);
+    Serial.println("Serial communication started.");
+
+    // Set PWM period (optional, depending on motor driver requirements)
+    motorA_pwm.period(0.001);  // Set PWM period to 1 ms for motor 1
+    motorB_pwm.period(0.001);  // Set PWM period to 1 ms for motor 2
+
+    // Set motor directions
+    motorA_dir = 1;  // Set motor 1 to forward direction
+    motorB_dir = 0;  // Set motor 2 to reverse direction
+
+    // Set motor speeds
+    motorA_pwm.write(motor_speed);  // Set speed for motor 1
+    motorB_pwm.write(motor_speed);  // Set speed for motor 2
+
+    // Attach interrupts for encoder signals
+    // Attach interrupt for encoder A (Motor A) on falling edge
+    encoderA.fall(&encoderISR_A);  // Interrupt on falling edge of Motor A encoder
+    encoderB.fall(&encoderISR_B);  // Interrupt on falling edge of Motor B encoder
+
+    // Start timer for speed calculation
+    speedTimer.start();
+}
+
+void motorA_up() {
+    motorSpeedA = min(motorSpeedA + 0.1, 1.0);
+    motorA_pwm.write(motorSpeedA);
+    Serial.print("Motor A speed increased to ");
+    Serial.println(motorSpeedA);
+}
+
+void motorB_up() {
+    motorSpeedB = min(motorSpeedB + 0.1, 1.0);
+    motorB_pwm.write(motorSpeedB);
+    Serial.print("Motor B speed increased to ");
+    Serial.println(motorSpeedB);
+
+}
+
+void motorA_down() {
+    motorSpeedA = max(motorSpeedA - 0.1, 0.0);
+    motorA_pwm.write(motorSpeedA);
+    Serial.print("Motor A speed decreased to ");
+    Serial.println(motorSpeedA);
+}
+
+void motorB_down() {
+    motorSpeedB = max(motorSpeedB - 0.1, 0.0);
+    motorB_pwm.write(motorSpeedB);
+    Serial.print("Motor B speed decreased to ");
+    Serial.println(motorSpeedB);
+}
+
+
+
+void loop() {
+    // Check if data is available on the serial port
+    if (Serial.available() > 0) {
+        // Read incoming byte
+        char command = Serial.read();
+
+        // Check the command and adjust motor behavior accordingly
+        if (command == 'w') {  // 'w' for forward
+            motorA_dir = 1;
+            motorB_dir = 0;
+            Serial.println("Motors set to forward.");
+        } else if (command == 'a') { // 'a' for spin left
+            motorA_dir = 1;
+            motorB_dir = 1;
+            Serial.println("Motors set to left turn");
+        } else if (command == 'd') { // 'd' for spin right
+            motorA_dir = 0;
+            motorB_dir = 0;
+            Serial.println("Motors set to right turn");
+        } else if (command == 's') {  // 's' for reverse
+            motorA_dir = 0;
+            motorB_dir = 1;
+            Serial.println("Motors set to reverse.");
+        } else if (command == 'b') {  // 'b' for stop
+            motorA_pwm.write(0);
+            motorB_pwm.write(0);
+            Serial.println("Motors stopped.");
+        } else if (command == 'u') {  
+            //motor_speed = min(motor_speed + 0.1, 1.0);
+            //motorA_pwm.write(motor_speed);
+            //motorB_pwm.write(motor_speed);
+            motorA_up();
+            motorB_up();
+            //Serial.print("Motor speed increased to ");
+            //Serial.println(motor_speed);
+        } else if (command == 'h') {  
+            //motor_speed = max(motor_speed - 0.1, 0.0);
+            //motorA_pwm.write(motor_speed);
+            //motorB_pwm.write(motor_speed);
+            motorA_down();
+            motorB_down();
+            //Serial.print("Motor speed decreased to ");
+            //Serial.println(motor_speed);
+        } else if (command == 'e') {
+            equalizeMotor();
+        
+        }
+      /*} else if (command == 'u') {  // 'u' for increase speed
+          //  motor_speed = min(motor_speed + 0.1, 1.0);
+          //  motorA_pwm.write(motor_speed);
+          //  motorB_pwm.write(motor_speed);
+            Serial.print("Motor speed increased to ");
+            Serial.println(motor_speed);
+        } else if (command == 'h') {  // 'h' for decrease speed
+           // motor_speed = max(motor_speed - 0.1, 0.0);
+           // motorA_pwm.write(motor_speed);
+           // motorB_pwm.write(motor_speed);
+            Serial.print("Motor speed decreased to ");
+            Serial.println(motor_speed);                                
+          } */
+                                                                     
+    }
+
+    // Calculate and print speed every second
+    if (speedTimer.read() >= 1.0) {  // 1 second elapsed
+        speedTimer.reset();
+
+        // Calculate motor A speed in RPM
+        motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;  // Convert to RPM
+        pulseCountA = 0;  // Reset pulse count for Motor A
+
+        // Calculate motor B speed in RPM
+        motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;  // Convert to RPM
+        pulseCountB = 0;  // Reset pulse count for Motor B
+
+        // Print motor speeds to serial monitor
+        Serial.print("Motor A speed: ");
+        Serial.print(motorSpeedReadA);
+        Serial.println(" RPM");
+
+        Serial.print("Motor B speed: ");
+        Serial.print(motorSpeedReadB);
+        Serial.println(" RPM");
+    
+    }
+    delay(100);
+}
+
+/*void equalizeMotor(){
+  Equalized = 0;
+  while (Equalized == 0){
+    if (motorSpeedA < (motorSpeedB - 10)){
+      motorB_down();
+    }
+    if (motorSpeedB < (motorSpeedA - 10)){
+      motorA_down();
+    }
+    if ((motorSpeedA < (motorSpeedB + 10))&&(motorSpeedA > (motorSpeedB - 10))){
+      Equalized == 1;
+    }
+    if (motorSpeedA == motorSpeedB){
+      Equalized == 1;
+    }
+  }
+}*/
+
+/*void equalizeMotor() {
+    Equalized = 0;  // Reset the equalization flag
+    float adjustment = 0.01;  // PWM adjustment step size (adjust this based on motor response)
+    
+    while (Equalized == 0) {
+        // Check if Motor A is slower than Motor B by more than 10 RPM
+        if (motorSpeedReadA < (motorSpeedReadB - 10)) {
+            motorSpeedA = min(motorSpeedA + adjustment, 1.0);  // Increase Motor A speed
+            motorA_pwm.write(motorSpeedA);
+        }
+        // Check if Motor B is slower than Motor A by more than 10 RPM
+        if (motorSpeedReadB < (motorSpeedReadA - 10)) {
+            motorSpeedB = min(motorSpeedB + adjustment, 1.0);  // Increase Motor B speed
+            motorB_pwm.write(motorSpeedB);
+        }
+        // Check if Motor A is faster than Motor B by more than 10 RPM
+        if (motorSpeedReadA > (motorSpeedReadB + 10)) {
+            motorSpeedA = max(motorSpeedA - adjustment, 0.0);  // Decrease Motor A speed
+            motorA_pwm.write(motorSpeedA);
+        }
+        // Check if Motor B is faster than Motor A by more than 10 RPM
+        if (motorSpeedReadB > (motorSpeedReadA + 10)) {
+            motorSpeedB = max(motorSpeedB - adjustment, 0.0);  // Decrease Motor B speed
+            motorB_pwm.write(motorSpeedB);
+        }
+
+        // Update motor speeds (wait briefly for motor response)
+        delay(100);
+
+        // Read current RPM values for both motors (calculate again if needed)
+        motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;  // Convert to RPM
+        motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;  // Convert to RPM
+
+        // Check if the RPM difference is within ±10
+        if (abs(motorSpeedReadA - motorSpeedReadB) <= 10) {
+            Equalized = 1;  // Motors are equalized
+            Serial.println("Motors successfully equalized.");
+        }
+    }
+}*/
+
+void equalizeMotor() {
+    Equalized = 0;  // Reset the equalization flag
+    //float adjustment = 0.01;  // PWM adjustment step size (fine-tune as needed)
+    
+    while (Equalized == 0) {
+        // Calculate current RPM based on encoder pulse counts
+        motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;  // Convert to RPM
+        motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;  // Convert to RPM
+
+        // Reset pulse counts for the next measurement interval
+        pulseCountA = 0;
+        pulseCountB = 0;
+
+        // Adjust speeds based on RPM difference
+        if (motorSpeedReadA < (motorSpeedReadB - 10)) {
+            motorSpeedA = min(motorSpeedA + 0.01, 1.0);  // Increase Motor A speed
+            motorA_pwm.write(motorSpeedA);
+        } else if (motorSpeedReadA > (motorSpeedReadB + 10)) {
+            motorSpeedA = max(motorSpeedA - 0.01, 0.0);  // Decrease Motor A speed
+            motorA_pwm.write(motorSpeedA);
+        }
+
+        if (motorSpeedReadB < (motorSpeedReadA - 10)) {
+            motorSpeedB = min(motorSpeedB + 0.01, 1.0);  // Increase Motor B speed
+            motorB_pwm.write(motorSpeedB);
+        } else if (motorSpeedReadB > (motorSpeedReadA + 10)) {
+            motorSpeedB = max(motorSpeedB - 0.01, 0.0);  // Decrease Motor B speed
+            motorB_pwm.write(motorSpeedB);
+        }
+
+        // Allow the motors to respond and encoders to accumulate new pulses
+        delay(500);  // Wait 500ms before re-evaluating (adjust delay as necessary)
+
+        // Check if speeds are within ±10 RPM
+        if (abs(motorSpeedReadA - motorSpeedReadB) <= 10) {
+            Equalized = 1;  // Motors are equalized
+            Serial.println("Motors successfully equalized.");
+        }
+    }
+}
+
+
