@@ -1,0 +1,70 @@
+#include <mbed.h>
+
+// I2C multiplexer and sensor addresses
+#define MULTIPLEXER_ADDR 0xEE
+#define SENSOR_ADDR 0x80
+
+// Sensor registers
+#define DISTANCE_HIGH_REG 0x5E
+#define SHIFT_BIT_REG 0x35
+
+// I2C pins (SCL and SDA for Nano 33 BLE)
+#define SCL_PIN P0_31
+#define SDA_PIN P0_02
+
+// Instantiate the I2C object
+mbed::I2C i2c(SCL_PIN, SDA_PIN);
+
+void setMultiplexerBus(uint8_t bus);
+float readDistanceCM();
+
+int main() {
+    // Initialize serial communication
+    Serial.begin(9600);
+    Serial.println("Serial communication started.");
+
+
+    // Set the multiplexer to bus 0
+    setMultiplexerBus(0);
+
+    while (true) {
+        // Read and print distance
+        float distance = readDistanceCM();
+        Serial.print("Distance: ");
+        Serial.print(distance);
+        Serial.println(" cm");
+
+        delay(500); //  delay
+    }
+}
+
+// Function to set the multiplexer to a specific bus
+void setMultiplexerBus(uint8_t bus) {
+    char mux_cmd = 1 << bus; // 0001b for bus 0, 0010b for bus 1, etc.
+    i2c.write(MULTIPLEXER_ADDR, &mux_cmd, 1);
+}
+
+// Function to read and calculate distance in cm
+float readDistanceCM() {
+    char cmd[2];         // To store command and data
+    char rawData[2] = {0}; // Array to store raw sensor data
+    char shiftBit = 0;   // To store the shift bit
+
+    // Read the shift bit from the sensor
+    cmd[0] = SHIFT_BIT_REG;
+    i2c.write(SENSOR_ADDR, cmd, 1); // Set register address to read
+    i2c.read(SENSOR_ADDR, &shiftBit, 1); // Read 1 byte
+
+    // Read the raw distance data (2 bytes)
+    cmd[0] = DISTANCE_HIGH_REG;
+    i2c.write(SENSOR_ADDR, cmd, 1); // Set register address to read
+    i2c.read(SENSOR_ADDR, rawData, 2); // Read 2 bytes
+
+    // Combine high and low bytes into a single value
+    uint16_t distanceRaw = (rawData[0] << 8) | rawData[1];
+
+    // Calculate the distance in cm
+    float distanceCM = distanceRaw / pow(2, shiftBit);
+
+    return distanceCM;
+}
