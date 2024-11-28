@@ -1,0 +1,6 @@
+float distance2 = readDistanceCM();
+    Serial.print("Sensor 2 Distance: ");
+    Serial.print(distance2);
+    Serial.println(" cm");
+
+    delay(500);  // 500 ms delay
