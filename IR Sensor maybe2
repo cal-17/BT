@@ -1,0 +1,97 @@
+#include <mbed.h>
+
+// I2C multiplexer and sensor addresses
+#define MULTIPLEXER_ADDR 0xEE  // Multiplexer I2C address
+#define SENSOR_ADDR 0x80       // Infrared sensor I2C address
+
+// Sensor registers
+#define DISTANCE_HIGH_REG 0x5E // Register for high byte of distance data
+#define SHIFT_BIT_REG 0x35     // Register for shift bit
+
+// Multiplexer commands for selecting buses
+#define MUX_BUS_0 0x01  // Bus 0
+#define MUX_BUS_1 0x02  // Bus 1
+#define MUX_BUS_2 0x04  // Bus 2
+#define MUX_BUS_3 0x08  // Bus 3
+
+// I2C pins for Nano 33 BLE (SCL and SDA)
+#define SCL_PIN P0_31
+#define SDA_PIN P0_2
+
+// Instantiate the I2C object
+mbed::I2C i2c(SCL_PIN, SDA_PIN);
+
+// Function prototypes
+void setMultiplexerBus(uint8_t busCommand);
+float readDistanceCM();
+void handleI2CError(int result);
+
+void setup() {
+    // Initialize serial communication
+    Serial.begin(9600);
+    Serial.println("Serial communication started.");
+    
+    // Set the multiplexer to bus 0
+    setMultiplexerBus(MUX_BUS_0);
+}
+
+int main() {
+    setup();
+
+    while (true) {
+        // Read and print the distance in centimeters
+        float distance = readDistanceCM();
+        Serial.print("Distance: ");
+        Serial.print(distance);
+        Serial.println(" cm");
+
+        delay(500);  // 500 ms delay
+    }
+}
+
+// Function to set the multiplexer to a specific bus
+void setMultiplexerBus(uint8_t busCommand) {
+    int result = i2c.write(MULTIPLEXER_ADDR, reinterpret_cast<char*>(&busCommand), 1);
+    handleI2CError(result);
+}
+
+// Function to read and calculate the distance in cm
+float readDistanceCM() {
+    char cmd;           // Command for register access
+    char rawData[2] = {0}; // Array to store raw sensor data
+    char shiftBit = 0;     // Shift bit for scaling
+
+    // Step 1: Read the shift bit from the sensor
+    cmd = SHIFT_BIT_REG;
+    int result = i2c.write(SENSOR_ADDR, &cmd, 1);
+    handleI2CError(result);
+    delay(1); // Allow the sensor time to process the command
+
+    result = i2c.read(SENSOR_ADDR, &shiftBit, 1);
+    handleI2CError(result);
+
+    // Step 2: Read the raw distance data (2 bytes)
+    cmd = DISTANCE_HIGH_REG;
+    result = i2c.write(SENSOR_ADDR, &cmd, 1);
+    handleI2CError(result);
+    delay(1);
+
+    result = i2c.read(SENSOR_ADDR, rawData, 2);
+    handleI2CError(result);
+
+    // Step 3: Combine high and low bytes into a single value
+    uint16_t distanceRaw = (rawData[0] << 8) | rawData[1];
+
+    // Step 4: Calculate the distance in cm using the shift bit
+    float distanceCM = distanceRaw / pow(2, shiftBit);
+
+    return distanceCM;
+}
+
+// Function to handle I2C errors
+void handleI2CError(int result) {
+    if (result != 0) {
+        Serial.print("I2C Error: ");
+        Serial.println(result);
+    }
+}
