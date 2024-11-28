@@ -35,19 +35,16 @@ void setup() {
     setMultiplexerBus(MUX_BUS_0);
 }
 
-int main() {
-    setup();
-
-    while (true) {
-        // Read and print the distance in centimeters
-        float distance = readDistanceCM();
+void loop()
+{
+  float distance = readDistanceCM();
         Serial.print("Distance: ");
         Serial.print(distance);
         Serial.println(" cm");
 
         delay(500);  // 500 ms delay
-    }
 }
+
 
 // Function to set the multiplexer to a specific bus
 void setMultiplexerBus(uint8_t busCommand) {
@@ -63,27 +60,24 @@ float readDistanceCM() {
 
     // Step 1: Read the shift bit from the sensor
     cmd = SHIFT_BIT_REG;
-    int result = i2c.write(SENSOR_ADDR, &cmd, 1);
-    handleI2CError(result);
+    i2c.write(SENSOR_ADDR, &cmd, 1);
     delay(1); // Allow the sensor time to process the command
 
-    result = i2c.read(SENSOR_ADDR, &shiftBit, 1);
-    handleI2CError(result);
-
+    i2c.read(SENSOR_ADDR, &shiftBit, 1);
+   
     // Step 2: Read the raw distance data (2 bytes)
     cmd = DISTANCE_HIGH_REG;
-    result = i2c.write(SENSOR_ADDR, &cmd, 1);
-    handleI2CError(result);
+    i2c.write(SENSOR_ADDR, &cmd, 1);
+    
     delay(1);
 
-    result = i2c.read(SENSOR_ADDR, rawData, 2);
-    handleI2CError(result);
-
+    i2c.read(SENSOR_ADDR, rawData, 2);
+    
     // Step 3: Combine high and low bytes into a single value
-    uint16_t distanceRaw = (rawData[0] << 8) | rawData[1];
+    uint16_t distanceRaw = (rawData[0] << 8) | rawData[1];// (rawData[0]*16 + rawData[1])/16/pow(2,2)
 
     // Step 4: Calculate the distance in cm using the shift bit
-    float distanceCM = distanceRaw / pow(2, shiftBit);
+    float distanceCM = (rawData[0]*16 + rawData[1])/16/pow(2,2); //distanceRaw / pow(2, shiftBit);
 
     return distanceCM;
 }
