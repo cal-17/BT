@@ -37,7 +37,7 @@ void setup() {
 
 void loop() {
   float distance = readDistanceCM();
-  Serial.print("Distance: ");
+  Serial.print("Sensor 1 Distance: ");
   Serial.print(distance);
   Serial.println(" cm");
 
