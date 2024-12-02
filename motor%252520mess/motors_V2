@@ -19,14 +19,26 @@ volatile float motor_speed = 0.5;
 // Encoder variables for Motor A and Motor B
 volatile int pulseCountA = 0;
 volatile int pulseCountB = 0;
+volatile int pulseCountDisA = 0;
+volatile int pulseCountDisB = 0;
 volatile float motorSpeedA = 0.0;      // Motor A speed
 volatile float motorSpeedB = 0.0;      // Motor B speed
 volatile float motorSpeedReadA = 0.0;  // Motor A speed measured in RPM
 volatile float motorSpeedReadB = 0.0;  // Motor B speed measured in RPM
 
 // Encoder pulses per revolution (adjust to match your encoder's spec)
-volatile float pulsesPerRevolutionA = 6.0;  // Motor A encoder PPR
-volatile float pulsesPerRevolutionB = 6.0;  // Motor B encoder PPR
+volatile float pulsesPerRevolutionA = 320.0;  // Motor A encoder PPR
+volatile float pulsesPerRevolutionB = 320.0;  // Motor B encoder PPR
+
+// Wheel parameters
+volatile float wheelDiameter = 0.0475;  // Example wheel diameter in meters (4.75 cm)
+volatile float wheelCircumference = 3.14159 * wheelDiameter;  // Circumference of the wheel
+volatile float distancePerPulseA = wheelCircumference / pulsesPerRevolutionA; // Distance per pulse for Motor A
+volatile float distancePerPulseB = wheelCircumference / pulsesPerRevolutionB; // Distance per pulse for Motor B
+
+// Total distance traveled by each motor
+volatile float distanceA = 0.0;
+volatile float distanceB = 0.0;
 
 mbed::Timer speedTimer;  // Timer to calculate motor speed every second
 
@@ -35,11 +47,13 @@ volatile int Equalized = 0;
 // Interrupt handler for encoder A (Motor A)
 void encoderISR_A() {
   pulseCountA++;
+  pulseCountDisA++;
 }
 
 // Interrupt handler for encoder B (Motor B)
 void encoderISR_B() {
   pulseCountB++;
+  pulseCountDisB++;
 }
 
 void setup() {
@@ -60,7 +74,6 @@ void setup() {
   motorB_pwm.write(motor_speed);  // Set speed for motor 2
 
   // Attach interrupts for encoder signals
-  // Attach interrupt for encoder A (Motor A) on falling edge
   encoderA.fall(&encoderISR_A);  // Interrupt on falling edge of Motor A encoder
   encoderB.fall(&encoderISR_B);  // Interrupt on falling edge of Motor B encoder
 
@@ -124,6 +137,14 @@ void brake() {
   motorA_pwm.write(0);
   motorB_pwm.write(0);
   Serial.println("Motors stopped.");
+}
+
+void DistanceA () {
+  distanceA = pulseCountDisA * distancePerPulseA;  // Distance for Motor A
+}
+
+void DistanceB () {
+  distanceB = pulseCountDisB * distancePerPulseB;  // Distance for Motor B
 }
 
 //void motorPulseCountA() {
@@ -215,18 +236,30 @@ void loop() {
     //motorPulseCountB();
     pulseCountB = 0;  // Reset pulse count for Motor B
 
+    // Calculate the distance traveled by each motor
+    //distanceA = pulseCountA * distancePerPulseA;  // Distance for Motor A
+    DistanceA ();
+    //distanceB = pulseCountB * distancePerPulseB;  // Distance for Motor B
+    DistanceB ();
+
     // Print motor speeds to serial monitor
     Serial.print("Motor A speed: ");
     Serial.print(motorSpeedReadA);
     Serial.println(" RPM");
     Serial.print("Pulse count A: ");
     Serial.println(pulseCountA);
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA);
+    Serial.println(" m");
 
     Serial.print("Motor B speed: ");
     Serial.print(motorSpeedReadB);
     Serial.println(" RPM");
     Serial.print("Pulse count B: ");
     Serial.println(pulseCountB);
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB);
+    Serial.println(" m");
   }
   delay(500);
 }
