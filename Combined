@@ -304,7 +304,7 @@ void turnfourtyfiveleft() {
   //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
 
   // Move until the robot has traveled 10 cm
-  while (distanceA < 0.1 && distanceB < 0.1) {  // 0.1 m = 10 cm
+  while (distanceA < 0.037 && distanceB < 0.037) {  // 0.1 m = 10 cm
     DistanceA();                                // Update the distance for Motor A
     DistanceB();                                // Update the distance for Motor B
 
