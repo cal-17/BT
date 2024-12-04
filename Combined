@@ -41,15 +41,15 @@ mbed::InterruptIn encoderB(P1_11);
 
 
 // Define motor speed (between 0.0 and 1.0)
-volatile float motor_speed = 0.5;
+volatile float motor_speed = 0.0;
 
 // Encoder variables for Motor A and Motor B
 volatile int pulseCountA = 0;
 volatile int pulseCountB = 0;
 volatile int pulseCountDisA = 0;
 volatile int pulseCountDisB = 0;
-volatile float motorSpeedA = 0.5;      // Motor A speed
-volatile float motorSpeedB = 0.5;      // Motor B speed
+volatile float motorSpeedA = 0.0;      // Motor A speed
+volatile float motorSpeedB = 0.0;      // Motor B speed
 volatile float motorSpeedReadA = 0.0;  // Motor A speed measured in RPM
 volatile float motorSpeedReadB = 0.0;  // Motor B speed measured in RPM
 
@@ -192,8 +192,8 @@ void equalizeMotor() {
 
   while (Equalized == 0) {
     // Calculate RPM based on accumulated pulses
-    motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;
-    motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;
+    motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA);
+    motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB);
 
     // Reset pulse counts
     pulseCountA = 0;
@@ -253,17 +253,19 @@ void equalizeMotor() {
 }
 
 void moveten() {
+  forward();  // Set the motors to move forward
 
   // Reset pulse counts to track how many pulses have been received
   pulseCountDisA = 0;
-  pulseCountDisB = 0; 
-  
-   forward();  // Set the motors to move forward
+  pulseCountDisB = 0;
 
   motorSpeedA = 0.3;  // Motor A speed
   motorSpeedB = 0.3;  // Motor B speed
 
-  //equalizeMotor();
+  equalizeMotor();
+
+  DistanceA();  // Update the distance for Motor A before loop set to 0
+  DistanceB();  // Update the distance for Motor B before loop set to 0
 
   // Calculate the number of pulses needed to move 10 cm
   //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
@@ -293,14 +295,17 @@ void moveten() {
 void turnfourtyfiveleft() {
   left();  // Set the motors to move forward
 
+  // Reset pulse counts to track how many pulses have been received
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
   motorSpeedA = 0.3;  // Motor A speed
   motorSpeedB = 0.3;  // Motor B speed
 
   equalizeMotor();
 
-  // Reset pulse counts to track how many pulses have been received
-  pulseCountDisA = 0;
-  pulseCountDisB = 0;
+  DistanceA();  // Update the distance for Motor A before loop set to 0
+  DistanceB();  // Update the distance for Motor B before loop set to 0
 
   // Calculate the number of pulses needed to move 10 cm
   //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
@@ -426,6 +431,13 @@ void loop() {
       reverse();
     } else if (command == 'b') {  // 'b' for stop
       brake();
+    } else if (command == 'go') {  // 'go' for stop
+      forward();
+      motorSpeedA = 0.3;  // Motor A speed
+      motorSpeedB = 0.3;  // Motor B speed
+      motorA_pwm.write(motorSpeedA);
+      motorB_pwm.write(motorSpeedB);
+      //equalizeMotor();
     } else if (command == 'u') {  // 'u' for +0.1
       motorA_up();
       motorB_up();
@@ -476,10 +488,10 @@ void loop() {
     Serial.print(distanceA);
     Serial.println(" m");
 
-  Serial.print("Motor A pulse: ");
-  Serial.println(pulseCountDisA);
-  Serial.print("Motor B pulse: ");
-  Serial.println(pulseCountDisB);
+    Serial.print("Motor A pulse: ");
+    Serial.println(pulseCountDisA);
+    Serial.print("Motor B pulse: ");
+    Serial.println(pulseCountDisB);
 
     Serial.print("Motor B speed: ");
     Serial.print(motorSpeedReadB);
