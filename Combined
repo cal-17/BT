@@ -277,11 +277,11 @@ void moveten() {
 
     // Optional: Print out the current distance (for debugging purposes)
     Serial.print("Motor A distance: ");
-    Serial.print(distanceA);
-    Serial.println(" m");
+    Serial.print(distanceA * 100);
+    Serial.println(" cm");
     Serial.print("Motor B distance: ");
-    Serial.print(distanceB);
-    Serial.println(" m");
+    Serial.print(distanceB * 100);
+    Serial.println(" cm");
 
     // Allow time for the loop to run at a reasonable speed
     delay(100);  // 100ms delay between distance checks
@@ -317,11 +317,11 @@ void turnfourtyfiveleft() {
 
     // Optional: Print out the current distance (for debugging purposes)
     Serial.print("Motor A distance: ");
-    Serial.print(distanceA);
-    Serial.println(" m");
+    Serial.print(distanceA * 100);
+    Serial.println(" cm");
     Serial.print("Motor B distance: ");
-    Serial.print(distanceB);
-    Serial.println(" m");
+    Serial.print(distanceB * 100);
+    Serial.println(" cm");
 
     // Allow time for the loop to run at a reasonable speed
     delay(100);  // 100ms delay between distance checks
@@ -332,13 +332,128 @@ void turnfourtyfiveleft() {
   Serial.println("Turned Left 45");
 }
 
+void moveforward() {
+  forward();  // Set the motors to move forward
+
+  motorSpeedA = 0.3;  // Motor A speed
+  motorSpeedB = 0.3;  // Motor B speed
+
+  equalizeMotor();  // Equalize motor speeds for both motors
+}
+
+void moveback() {
+  reverse();  // Set the motors to move
+
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
+  motorSpeedA = 0.3;  // Motor A speed
+  motorSpeedB = 0.3;  // Motor B speed
+
+  equalizeMotor();
+
+  DistanceA();  // Update the distance for Motor A before loop set to 0
+  DistanceB();  // Update the distance for Motor B before loop set to 0
+
+
+  // Move until the robot has traveled 1 cm
+  while (distanceA < 0.01 && distanceB < 0.01) {  // 0.01 m = 1 cm
+    DistanceA();                                  // Update the distance for Motor A
+    DistanceB();                                  // Update the distance for Motor B
+
+    // Optional: Print out the current distance (for debugging purposes)
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA * 100);
+    Serial.println(" cm");
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB * 100);
+    Serial.println(" cm");
+
+    // Allow time for the loop to run at a reasonable speed
+    delay(100);  // 100ms delay between distance checks
+  }
+}
+
+void checknmovef() {
+
+  float minDistanceThreshold = 10.0;  // in cm
+
+
+  while (true) {
+    checksensors();  // Check the sensor distances
+
+    // Read distance from Sensor 1
+    float distance1 = readDistanceCM();
+    Serial.print("Sensor 1 Distance: ");
+    Serial.print(distance1);
+    Serial.println(" cm");
+
+    if (distance1 < minDistanceThreshold) {  // Check if the distance from Sensor 1 falls below the threshold
+
+      brake();
+      Serial.println("Wall in front. Stopping robot.");
+
+    } else {  // If the distance is fine, move the robot
+
+      moveforward();
+    }
+
+    //delay(100);
+  }
+}
+
+void checknmove() {
+
+  float minDistanceThreshold = 10.0;  // in cm
+
+  while (true) {
+    checksensors();  // Check sensor
+
+    float distance1 = readDistanceCM();
+    Serial.print("Sensor 1 Distance: ");
+    Serial.print(distance1);
+    Serial.println(" cm");
+
+    if (distance1 < minDistanceThreshold) {
+      brake();
+      Serial.println("Wall in front, stopping robot");
+
+      //moveback();
+
+      checksensors();
+
+      float distanceL = readDistanceCM();  //left sensor
+      Serial.print("Left Sensor Distance: ");
+      Serial.print(distanceL);
+      Serial.println(" cm");
+
+      /*float distanceR = readDistanceCM();  //right sensor 
+       Serial.print("Right Sensor Distance: ");
+       Serial.print(distanceR);
+       Serial.println(" cm");*/
+
+      if (distanceL > minDistanceThreshold) {
+        Serial.println("Left sensor is clear, turning 45 degrees left twice.");
+        turnfourtyfiveleft();
+        delay(500);
+        turnfourtyfiveleft();
+      }
+    } else {
+      moveforward();
+    }
+
+    //delay(100);
+  }
+}
+
+
 void checksensors() {
-  float distance = readDistanceCM();
+  float distance1 = readDistanceCM();
   Serial.print("Sensor 1 Distance: ");
-  Serial.print(distance);
+  Serial.print(distance1);
   Serial.println(" cm");
 
-  delay(500);  // 500 ms delay
+  delay(50);  // 500 ms delay
 
   setMultiplexerBus(MUX_BUS_1);
 
@@ -347,7 +462,7 @@ void checksensors() {
   Serial.print(distance2);
   Serial.println(" cm");
 
-  delay(500);  // 500 ms delay
+  delay(50);  // 500 ms delay
 
   setMultiplexerBus(MUX_BUS_2);
 
@@ -356,7 +471,7 @@ void checksensors() {
   Serial.print(distanceL);
   Serial.println(" cm");
 
-  delay(500);  // 500 ms delay
+  delay(50);  // 500 ms delay
 
   setMultiplexerBus(MUX_BUS_3);
 
@@ -365,7 +480,7 @@ void checksensors() {
   Serial.print(distanceR);
   Serial.println(" cm");
 
-  delay(500);  // 500 ms delay
+  delay(50);  // 500 ms delay
 
   setMultiplexerBus(MUX_BUS_0);
 }
@@ -455,52 +570,56 @@ void loop() {
     } else if (command == 'l90') {  // '90' turn left 90
       turnfourtyfiveleft();
       turnfourtyfiveleft();
+    } else if (command == 't') {
+      checknmove();
+    } else if (command == 'r') {
+      moveback();
     }
+
+    //checksensors();
+
+    // Calculate and print speed every second
+    if (speedTimer.read() >= 1.0) {  // 1 second elapsed
+      speedTimer.reset();
+
+      // Calculate motor A speed in RPM
+      motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;  // Convert to RPM
+      //motorPulseCountA();
+      pulseCountA = 0;  // Reset pulse count for Motor A
+
+      // Calculate motor B speed in RPM
+      motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;  // Convert to RPM
+      //motorPulseCountB();
+      pulseCountB = 0;  // Reset pulse count for Motor B
+
+      // Calculate the distance traveled by each motor
+      DistanceA();
+      DistanceB();
+
+      // Print motor speeds to serial monitor
+      Serial.print("Motor A speed: ");
+      Serial.print(motorSpeedReadA);
+      Serial.println(" RPM");
+      Serial.print("Pulse count A: ");
+      Serial.println(pulseCountA);
+      Serial.print("Motor A distance: ");
+      Serial.print(distanceA);
+      Serial.println(" m");
+
+      Serial.print("Motor A pulse: ");
+      Serial.println(pulseCountDisA);
+      Serial.print("Motor B pulse: ");
+      Serial.println(pulseCountDisB);
+
+      Serial.print("Motor B speed: ");
+      Serial.print(motorSpeedReadB);
+      Serial.println(" RPM");
+      Serial.print("Pulse count B: ");
+      Serial.println(pulseCountB);
+      Serial.print("Motor B distance: ");
+      Serial.print(distanceB);
+      Serial.println(" m");
+    }
+    delay(500);
   }
-
-  checksensors();
-
-  // Calculate and print speed every second
-  if (speedTimer.read() >= 1.0) {  // 1 second elapsed
-    speedTimer.reset();
-
-    // Calculate motor A speed in RPM
-    motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;  // Convert to RPM
-    //motorPulseCountA();
-    pulseCountA = 0;  // Reset pulse count for Motor A
-
-    // Calculate motor B speed in RPM
-    motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;  // Convert to RPM
-    //motorPulseCountB();
-    pulseCountB = 0;  // Reset pulse count for Motor B
-
-    // Calculate the distance traveled by each motor
-    DistanceA();
-    DistanceB();
-
-    // Print motor speeds to serial monitor
-    Serial.print("Motor A speed: ");
-    Serial.print(motorSpeedReadA);
-    Serial.println(" RPM");
-    Serial.print("Pulse count A: ");
-    Serial.println(pulseCountA);
-    Serial.print("Motor A distance: ");
-    Serial.print(distanceA);
-    Serial.println(" m");
-
-    Serial.print("Motor A pulse: ");
-    Serial.println(pulseCountDisA);
-    Serial.print("Motor B pulse: ");
-    Serial.println(pulseCountDisB);
-
-    Serial.print("Motor B speed: ");
-    Serial.print(motorSpeedReadB);
-    Serial.println(" RPM");
-    Serial.print("Pulse count B: ");
-    Serial.println(pulseCountB);
-    Serial.print("Motor B distance: ");
-    Serial.print(distanceB);
-    Serial.println(" m");
-  }
-  delay(500);
 }
