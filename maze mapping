@@ -1,0 +1,230 @@
+// Define the maze size (e.g., 16x16 grid)
+const int mazeWidth = 16;
+const int mazeHeight = 16;
+
+// Maze map initialization with all cells marked as unknown (-1)
+int mazeMap[mazeHeight][mazeWidth];
+
+const int robotWidth = 2;  // Number of grid cells wide the robot occupies
+const int robotHeight = 2; // Number of grid cells tall the robot occupies
+
+
+// Robot's current position and direction
+int robotX = 0;
+int robotY = 0;
+int robotDir = 0;  // 0 = North, 1 = East, 2 = South, 3 = West
+
+// Define sensor thresholds and distances
+float distance1, distanceL, distanceR; // Sensor readings
+float wallThreshold = 15.0;  // Wall detection threshold in cm
+
+
+void setup() {
+  Serial.begin(9600);
+  
+  // Initialize the maze map with all unknown cells
+  initializeMazeMap();
+  
+  // Start by printing the initial maze
+  displayMazeMap();
+  
+  Serial.println("Maze mapping initialized.");
+}
+
+void initializeMazeMap() {
+  // Set all cells to unknown (-1)
+  for (int y = 0; y < mazeHeight; y++) {
+    for (int x = 0; x < mazeWidth; x++) {
+      mazeMap[y][x] = -1;  // -1 represents unknown
+    }
+  }
+}
+
+void displayMazeMap() {
+  // Print the current state of the maze to the serial monitor
+  Serial.println("Current Maze Map:");
+  for (int y = 0; y < mazeHeight; y++) {
+    for (int x = 0; x < mazeWidth; x++) {
+      if (mazeMap[y][x] == 1) {
+        Serial.print("1 ");  // Wall
+      } else if (mazeMap[y][x] == -1) {
+        Serial.print("? ");  // Unknown
+      } else {
+        Serial.print("0 ");  // Empty space
+      }
+    }
+    Serial.println();
+  }
+  Serial.println();  // Add a newline for readability
+}
+
+void updateMazeMap() {
+  // Mark all the cells occupied by the robot as empty (0)
+  for (int i = 0; i < robotHeight; i++) {
+    for (int j = 0; j < robotWidth; j++) {
+      int gridX = robotX + j;
+      int gridY = robotY + i;
+      
+      // Ensure the grid coordinates are within bounds
+      if (gridX >= 0 && gridX < mazeWidth && gridY >= 0 && gridY < mazeHeight) {
+        mazeMap[gridY][gridX] = 0;  // Empty
+        Serial.print("Marked grid at (");
+        Serial.print(gridX);
+        Serial.print(", ");
+        Serial.print(gridY);
+        Serial.println(") as empty.");
+      }
+    }
+  }
+}
+
+void moveforward() {
+  forward();  // Set the motors to move forward
+  motorSpeedA = 0.3;  // Motor A speed
+  motorSpeedB = 0.3;  // Motor B speed
+  equalizeMotor();  // Equalize motor speeds for both motors
+
+  // Reset pulse counts to track how many pulses have been received
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
+  // Track the total distance traveled
+  distanceA = 0;
+  distanceB = 0;
+
+  float gridUnit = 10.0;  // Distance for one grid unit in cm (adjust as per maze)
+
+  // Move until the robot has traveled one grid unit (e.g., 10 cm)
+  while (distanceA < gridUnit && distanceB < gridUnit) {
+    DistanceA();  // Update the distance for Motor A
+    DistanceB();  // Update the distance for Motor B
+
+    // Print distances for debugging
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA * 100);  // Convert to cm
+    Serial.println(" cm");
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB * 100);  // Convert to cm
+    Serial.println(" cm");
+
+    // Allow time for the loop to run at a reasonable speed
+    delay(100);  // 100ms delay between distance checks
+  }
+
+  // Once the robot has moved the desired distance, stop the motors
+  brake();
+
+  // Update the robot's position on the map after moving
+  robotX += dx(robotDir);
+  robotY += dy(robotDir);
+
+  // Mark the current position and surrounding areas on the maze map
+  updateMazeMap();
+  displayMazeMap();
+
+  Serial.println("Moved 10 cm and updated the map.");
+
+  // Now, check the sensors and update the maze based on the sensor readings
+  checkSensorsAndUpdateMaze();
+}
+
+
+void checkSensorsAndUpdateMaze() {
+  // Sensor threshold for detecting walls
+  float wallThreshold = 15.0;  // Set this according to your environment (in cm)
+
+  // Check front sensor
+  if (distance1 < wallThreshold) {
+    Serial.println("Wall detected ahead.");
+    // Mark the front grid as a wall (e.g., "1")
+    markAsWall(robotX + dx(robotDir), robotY + dy(robotDir));
+  } else {
+    Serial.println("No wall detected ahead.");
+    // Mark the front grid as unknown (e.g., "?")
+    markAsUnknown(robotX + dx(robotDir), robotY + dy(robotDir));
+  }
+
+  // Check left sensor
+  if (distanceL < wallThreshold) {
+    Serial.println("Wall detected on the left.");
+    // Mark the left grid as a wall (e.g., "1")
+    markAsWall(robotX - 1, robotY);  // Assuming moving left changes X position
+  } else {
+    Serial.println("No wall detected on the left.");
+    // Mark the left grid as unknown (e.g., "?")
+    markAsUnknown(robotX - 1, robotY);
+  }
+
+  // Check right sensor
+  if (distanceR < wallThreshold) {
+    Serial.println("Wall detected on the right.");
+    // Mark the right grid as a wall (e.g., "1")
+    markAsWall(robotX + 1, robotY);  // Assuming moving right changes X position
+  } else {
+    Serial.println("No wall detected on the right.");
+    // Mark the right grid as unknown (e.g., "?")
+    markAsUnknown(robotX + 1, robotY);
+  }
+}
+
+
+void markAsWall(int x, int y) {
+  // Mark the cells occupied by the robot as walls (1)
+  for (int i = 0; i < robotHeight; i++) {
+    for (int j = 0; j < robotWidth; j++) {
+      int gridX = x + j;
+      int gridY = y + i;
+      
+      // Ensure the grid coordinates are within bounds
+      if (gridX >= 0 && gridX < mazeWidth && gridY >= 0 && gridY < mazeHeight) {
+        mazeMap[gridY][gridX] = 1;  // Wall
+        Serial.print("Marked grid at (");
+        Serial.print(gridX);
+        Serial.print(", ");
+        Serial.print(gridY);
+        Serial.println(") as a wall.");
+      }
+    }
+  }
+}
+
+void markAsUnknown(int x, int y) {
+  // Mark the cells occupied by the robot as unknown (-1)
+  for (int i = 0; i < robotHeight; i++) {
+    for (int j = 0; j < robotWidth; j++) {
+      int gridX = x + j;
+      int gridY = y + i;
+      
+      // Ensure the grid coordinates are within bounds
+      if (gridX >= 0 && gridX < mazeWidth && gridY >= 0 && gridY < mazeHeight) {
+        mazeMap[gridY][gridX] = -1;  // Unknown
+        Serial.print("Marked grid at (");
+        Serial.print(gridX);
+        Serial.print(", ");
+        Serial.print(gridY);
+        Serial.println(") as unknown.");
+      }
+    }
+  }
+}
+
+int dx(int direction) {
+  // Determine how to move in the X direction based on the robot's orientation
+  if (direction == 1) {
+    return 1;  // Move right (East)
+  } else if (direction == 3) {
+    return -1;  // Move left (West)
+  }
+  return 0;  // No movement in X (North or South)
+}
+
+int dy(int direction) {
+  // Determine how to move in the Y direction based on the robot's orientation
+  if (direction == 0) {
+    return -1;  // Move up (North)
+  } else if (direction == 2) {
+    return 1;  // Move down (South)
+  }
+  return 0;  // No movement in Y (East or West)
+}
+
