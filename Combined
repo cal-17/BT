@@ -67,11 +67,14 @@ volatile float wheelCircumference = 3.14159 * wheelDiameter;                   /
 volatile float distancePerPulseA = wheelCircumference / pulsesPerRevolutionA;  // Distance per pulse for Motor A
 volatile float distancePerPulseB = wheelCircumference / pulsesPerRevolutionB;  // Distance per pulse for Motor B
 
-
-
 mbed::Timer speedTimer;  // Timer to calculate motor speed every second
 
 volatile int Equalized = 0;
+
+volatile float distance1;
+volatile float distance2;
+volatile float distanceL;
+volatile float distanceR;
 
 // Interrupt handler for encoder A (Motor A)
 void encoderISR_A() {
@@ -201,7 +204,7 @@ void equalizeMotor() {
 
     float diff = motorSpeedReadB - motorSpeedReadA;
 
-    if (diff > 50) {
+    if (diff > 3) {
       motorSpeedB = max(motorSpeedB - 0.01, 0.0);  // Decrease Motor B speed
       Serial.print(motorSpeedReadB);
       Serial.print(" > ");
@@ -211,7 +214,7 @@ void equalizeMotor() {
       Serial.print(" Decrementing B to ");
       Serial.println(motorSpeedB);
     }
-    if (diff < -50) {
+    if (diff < -3) {
       motorSpeedA = max(motorSpeedA - 0.01, 0.0);  // Decrease Motor A speed
       Serial.print(motorSpeedReadB);
       Serial.print(" < ");
@@ -245,7 +248,7 @@ void equalizeMotor() {
     delay(500);  // Adjust based on encoder response time
 
     // Check if RPMs are within ±10
-    if (abs(motorSpeedReadA - motorSpeedReadB) <= 500) {
+    if (abs(motorSpeedReadA - motorSpeedReadB) <= 3) {
       Equalized = 1;
       Serial.println("Motors successfully equalized.");
     }
@@ -259,8 +262,8 @@ void moveten() {
   pulseCountDisA = 0;
   pulseCountDisB = 0;
 
-  motorSpeedA = 0.3;  // Motor A speed
-  motorSpeedB = 0.3;  // Motor B speed
+  motorSpeedA = 0.2;  // Motor A speed
+  motorSpeedB = 0.2;  // Motor B speed
 
   equalizeMotor();
 
@@ -271,7 +274,7 @@ void moveten() {
   //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
 
   // Move until the robot has traveled 10 cm
-  while (distanceA < 0.1 && distanceB < 0.1) {  // 0.1 m = 10 cm
+  while (distanceA < 0.05 && distanceB < 0.05) {  // 0.1 m = 10 cm
     DistanceA();                                // Update the distance for Motor A
     DistanceB();                                // Update the distance for Motor B
 
@@ -292,8 +295,8 @@ void moveten() {
   Serial.println("Moved 10 cm and stopped.");
 }
 
-void turnfourtyfiveleft() {
-      Serial.println(" Start turn");
+void turnfourtyfiveleftpulse() {
+  Serial.println(" Start turn");
   left();  // Set the motors to move forward
 
   // Reset pulse counts to track how many pulses have been received
@@ -312,9 +315,48 @@ void turnfourtyfiveleft() {
   //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
 
   // Move until the robot has traveled 10 cm
-  while (distanceA < 0.035 && distanceB < 0.035 ) {  //   0.0365
-    DistanceA();                                      // Update the distance for Motor A
-    DistanceB();                                      // Update the distance for Motor B
+  while (pulseCountDisA < 83 && pulseCountDisB < 83) {  //   0.0365
+    DistanceA();                                        // Update the distance for Motor A
+    DistanceB();                                        // Update the distance for Motor B
+
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA * 100);
+    Serial.println(" cm");
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB * 100);
+    Serial.println(" cm");
+
+    Serial.println(pulseCountDisA);
+    Serial.println(pulseCountDisB);
+
+    // Allow time for the loop to run at a reasonable speed
+    delay(100);  // 100ms delay between distance checks
+  }
+}
+
+void turnfourtyfiveleft() {
+  Serial.println(" Start turn");
+  left();  // Set the motors to move forward
+
+  // Reset pulse counts to track how many pulses have been received
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
+  motorSpeedA = 0.2;  // Motor A speed
+  motorSpeedB = 0.2;  // Motor B speed
+
+  equalizeMotor();
+
+  DistanceA();  // Update the distance for Motor A before loop set to 0
+  DistanceB();  // Update the distance for Motor B before loop set to 0
+
+  // Calculate the number of pulses needed to move 10 cm
+  //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
+
+  // Move until the robot has traveled 10 cm
+  while (distanceA < 0.035 && distanceB < 0.035) {  //   0.0365
+    DistanceA();                                    // Update the distance for Motor A
+    DistanceB();                                    // Update the distance for Motor B
 
     Serial.print("Motor A distance: ");
     Serial.print(distanceA * 100);
@@ -333,15 +375,57 @@ void turnfourtyfiveleft() {
   Serial.println("Turned Left 45");
 }
 
+void turnfourtyfiveright() {
+  Serial.println(" Start turn");
+  right();  // Set the motors to move forward
+
+  // Reset pulse counts to track how many pulses have been received
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
+  motorSpeedA = 0.3;  // Motor A speed
+  motorSpeedB = 0.3;  // Motor B speed
+
+  equalizeMotor();
+
+  DistanceA();  // Update the distance for Motor A before loop set to 0
+  DistanceB();  // Update the distance for Motor B before loop set to 0
+
+  // Calculate the number of pulses needed to move 10 cm
+  //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
+
+  // Move until the robot has traveled 10 cm
+  while (distanceA < 0.035 && distanceB < 0.035) {  //   0.0365
+    DistanceA();                                    // Update the distance for Motor A
+    DistanceB();                                    // Update the distance for Motor B
+
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA * 100);
+    Serial.println(" cm");
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB * 100);
+    Serial.println(" cm");
+
+    // Allow time for the loop to run at a reasonable speed
+    delay(100);  // 100ms delay between distance checks
+  }
+
+  // Once the robot has moved 10 cm, stop the motors
+  brake();
+
+  Serial.println("Turned Right 45");
+}
+
+
 void turn180() {
   turnfourtyfiveleft();
-  delay(100);
+  delay(250);
   turnfourtyfiveleft();
-  delay(100);
+  delay(250);
   turnfourtyfiveleft();
-  delay(100);
+  delay(250);
   turnfourtyfiveleft();
-  delay(100);
+  delay(250);
 }
 
 void moveforward() {
@@ -416,7 +500,7 @@ void checknmovef() {
   }
 }
 
-void checknmovel() {
+/*void checknmovel() {
 
   float minDistanceThreshold = 10.0;  // in cm
 
@@ -441,10 +525,10 @@ void checknmovel() {
       Serial.print(distanceL);
       Serial.println(" cm");
 
-      /*float distanceR = readDistanceCM();  //right sensor 
+      float distanceR = readDistanceCM();  //right sensor 
        Serial.print("Right Sensor Distance: ");
        Serial.print(distanceR);
-       Serial.println(" cm");*/
+       Serial.println(" cm");
 
       if (distanceL > minDistanceThreshold) {
         Serial.println("Left sensor is clear, turning 45 degrees left twice.");
@@ -460,8 +544,11 @@ void checknmovel() {
   }
 }
 
-void checknmove() {
-  float minDistanceThreshold = 10.0;  // in cm
+void checknmove1() {
+  float minDistanceThresholdFront = 10.0;  // in cm
+  float minDistanceThresholdLeft = 15.0;   // in cm
+
+  checksensors();  // Check sensor
 
   while (true) {
     checksensors();  // Check sensor
@@ -471,7 +558,7 @@ void checknmove() {
     Serial.print(distanceL);
     Serial.println(" cm");
 
-    if (distanceL > minDistanceThreshold) {
+    if (distanceL > minDistanceThresholdLeft) {
       // If the left sensor detects a gap, turn 45 degrees left twice
       brake();
 
@@ -487,34 +574,21 @@ void checknmove() {
 
       delay(100);
 
-      moveten();
 
     } else {
-     
-      float distance1 = readDistanceCM();      // Check the front sensor
+
+      float distance1 = readDistanceCM();  // Check the front sensor
       Serial.print("Sensor 1 Distance: ");
       Serial.print(distance1);
       Serial.println(" cm");
 
-      if (distance1 < minDistanceThreshold) {   // If a wall is detected in front, stop and turn 180 degrees
-       
+      if (distance1 < minDistanceThresholdFront) {  // If a wall is detected in front, stop and turn 180 degrees
+
         brake();
 
         Serial.println("Wall detected ahead, stopping and turning 180 degrees.");
 
-        turnfourtyfiveleft();
-
-        delay(100);
-
-        turnfourtyfiveleft();
-
-        delay(100);
-
-        turnfourtyfiveleft();
-
-        delay(100);
-
-        turnfourtyfiveleft();
+        turn180();
 
         // Resume looking for a gap in the left wall
         moveforward();
@@ -526,12 +600,74 @@ void checknmove() {
 
     delay(100);  // Small delay to avoid excessive sensor polling
   }
+}*/
+
+void checknmove() {
+  float minDistanceThresholdFront = 10.0;  // in cm
+  float minDistanceThresholdLeft = 15.0;   // in cm
+
+  while (true) {
+    checksensors();
+
+    //setMultiplexerBus(MUX_BUS_2);
+    //float distanceL = readDistanceCM();  // Left sensor
+    //setMultiplexerBus(MUX_BUS_0);
+    //float distance1 = readDistanceCM();  // Front sensor
+
+    Serial.print("Left Sensor Distance: ");
+    Serial.print(distanceL);
+    Serial.println(" cm");
+
+    Serial.print("Front Sensor Distance: ");
+    Serial.print(distance1);
+    Serial.println(" cm");
+
+    if (distanceL > minDistanceThresholdLeft) {
+
+      brake();
+
+      checksensors();
+
+      Serial.println("Gap detected on the left, turning 45 degrees left twice.");
+
+      turnfourtyfiveleft();
+
+      delay(200);
+
+      turnfourtyfiveleft();
+
+      moveforward();
+
+      delay(100);
+
+    } else {
+
+      if (distance1 < minDistanceThresholdFront) {
+
+        brake();
+
+        checksensors();
+
+        Serial.println("Wall detected ahead, stopping and turning 180 degrees.");
+
+        turn180();
+
+        checksensors();
+
+        moveforward();
+      } else {
+
+
+        moveforward();
+      }
+    }
+
+    delay(100);  // Small delay to avoid excessive sensor polling
+  }
 }
 
-
-
 void checksensors() {
-  float distance1 = readDistanceCM();
+  distance1 = readDistanceCM();
   Serial.print("Sensor 1 Distance: ");
   Serial.print(distance1);
   Serial.println(" cm");
@@ -540,7 +676,7 @@ void checksensors() {
 
   setMultiplexerBus(MUX_BUS_1);
 
-  float distance2 = readDistanceCM();
+  distance2 = readDistanceCM();
   Serial.print("Sensor 2 Distance: ");
   Serial.print(distance2);
   Serial.println(" cm");
@@ -549,7 +685,7 @@ void checksensors() {
 
   setMultiplexerBus(MUX_BUS_2);
 
-  float distanceL = readDistanceCM();
+  distanceL = readDistanceCM();
   Serial.print("Sensor L Distance: ");
   Serial.print(distanceL);
   Serial.println(" cm");
@@ -558,7 +694,7 @@ void checksensors() {
 
   setMultiplexerBus(MUX_BUS_3);
 
-  float distanceR = readDistanceCM();
+  distanceR = readDistanceCM();
   Serial.print("Sensor R Distance: ");
   Serial.print(distanceR);
   Serial.println(" cm");
@@ -629,7 +765,7 @@ void loop() {
       reverse();
     } else if (command == 'b') {  // 'b' for stop
       brake();
-    } else if (command == 'go') {  // 'go' for stop
+    } else if (command == 'g') {  // 'go' for stop
       moveforward();
     } else if (command == 'u') {  // 'u' for +0.1
       motorA_up();
@@ -639,12 +775,16 @@ void loop() {
       motorB_down();
     } else if (command == 'e') {  // 'e' for equalize
       equalizeMotor();
-    } else if (command == 'reset') {  // reset varibles
+    } else if (command == 'r') {  // reset varibles
       reset();
     } else if (command == 'm') {  // 'm' move 10cm
       moveten();
     } else if (command == 'l') {  // 'l' turn left 45
       turnfourtyfiveleft();
+    } else if (command == 'j') {  // 'j' turn right 45
+      turnfourtyfiveright();
+    } else if (command == 'p') {
+      checknmovel();
     } else if (command == 'l90') {  // '90' turn left 90
       turnfourtyfiveleft();
       turnfourtyfiveleft();
@@ -655,51 +795,52 @@ void loop() {
     } else if (command == 'o') {
       turn180();
     }
-
-    checksensors();
-
-    // Calculate and print speed every second
-    if (speedTimer.read() >= 1.0) {  // 1 second elapsed
-      speedTimer.reset();
-
-      // Calculate motor A speed in RPM
-      motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;  // Convert to RPM
-      //motorPulseCountA();
-      pulseCountA = 0;  // Reset pulse count for Motor A
-
-      // Calculate motor B speed in RPM
-      motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;  // Convert to RPM
-      //motorPulseCountB();
-      pulseCountB = 0;  // Reset pulse count for Motor B
-
-      // Calculate the distance traveled by each motor
-      DistanceA();
-      DistanceB();
-
-      // Print motor speeds to serial monitor
-      Serial.print("Motor A speed: ");
-      Serial.print(motorSpeedReadA);
-      Serial.println(" RPM");
-      Serial.print("Pulse count A: ");
-      Serial.println(pulseCountA);
-      Serial.print("Motor A distance: ");
-      Serial.print(distanceA);
-      Serial.println(" m");
-
-      Serial.print("Motor A pulse: ");
-      Serial.println(pulseCountDisA);
-      Serial.print("Motor B pulse: ");
-      Serial.println(pulseCountDisB);
-
-      Serial.print("Motor B speed: ");
-      Serial.print(motorSpeedReadB);
-      Serial.println(" RPM");
-      Serial.print("Pulse count B: ");
-      Serial.println(pulseCountB);
-      Serial.print("Motor B distance: ");
-      Serial.print(distanceB);
-      Serial.println(" m");
-    }
-    delay(500);
   }
+
+  //checksensors();
+
+  // Calculate and print speed every second
+  if (speedTimer.read() >= 1.0) {  // 1 second elapsed
+    speedTimer.reset();
+
+    // Calculate motor A speed in RPM
+    motorSpeedReadA = (pulseCountA / pulsesPerRevolutionA) * 60.0;  // Convert to RPM
+    //motorPulseCountA();
+    pulseCountA = 0;  // Reset pulse count for Motor A
+
+    // Calculate motor B speed in RPM
+    motorSpeedReadB = (pulseCountB / pulsesPerRevolutionB) * 60.0;  // Convert to RPM
+    //motorPulseCountB();
+    pulseCountB = 0;  // Reset pulse count for Motor B
+
+    // Calculate the distance traveled by each motor
+    DistanceA();
+    DistanceB();
+
+
+    // Print motor speeds to serial monitor
+    /* Serial.print("Motor A speed: ");
+    Serial.print(motorSpeedReadA);
+    Serial.println(" RPM");
+    Serial.print("Pulse count A: ");
+    Serial.println(pulseCountA);
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA);
+    Serial.println(" m");
+
+    Serial.print("Motor A pulse: ");
+    Serial.println(pulseCountDisA);
+    Serial.print("Motor B pulse: ");
+    Serial.println(pulseCountDisB);
+
+    Serial.print("Motor B speed: ");
+    Serial.print(motorSpeedReadB);
+    Serial.println(" RPM");
+    Serial.print("Pulse count B: ");
+    Serial.println(pulseCountB);
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB);
+    Serial.println(" m");*/
+  }
+  delay(500);
 }
