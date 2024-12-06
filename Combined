@@ -293,6 +293,7 @@ void moveten() {
 }
 
 void turnfourtyfiveleft() {
+      Serial.println(" Start turn");
   left();  // Set the motors to move forward
 
   // Reset pulse counts to track how many pulses have been received
@@ -311,11 +312,10 @@ void turnfourtyfiveleft() {
   //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
 
   // Move until the robot has traveled 10 cm
-  while (distanceA < 0.0365 && distanceB < 0.0365) {  // 0.1 m = 10 cm
+  while (distanceA < 0.035 && distanceB < 0.035 ) {  //   0.0365
     DistanceA();                                      // Update the distance for Motor A
     DistanceB();                                      // Update the distance for Motor B
 
-    // Optional: Print out the current distance (for debugging purposes)
     Serial.print("Motor A distance: ");
     Serial.print(distanceA * 100);
     Serial.println(" cm");
@@ -329,7 +329,19 @@ void turnfourtyfiveleft() {
 
   // Once the robot has moved 10 cm, stop the motors
   brake();
+
   Serial.println("Turned Left 45");
+}
+
+void turn180() {
+  turnfourtyfiveleft();
+  delay(100);
+  turnfourtyfiveleft();
+  delay(100);
+  turnfourtyfiveleft();
+  delay(100);
+  turnfourtyfiveleft();
+  delay(100);
 }
 
 void moveforward() {
@@ -393,6 +405,8 @@ void checknmovef() {
       brake();
       Serial.println("Wall in front. Stopping robot.");
 
+      turn180();
+
     } else {  // If the distance is fine, move the robot
 
       moveforward();
@@ -402,7 +416,7 @@ void checknmovef() {
   }
 }
 
-void checknmove() {
+void checknmovel() {
 
   float minDistanceThreshold = 10.0;  // in cm
 
@@ -445,6 +459,75 @@ void checknmove() {
     //delay(100);
   }
 }
+
+void checknmove() {
+  float minDistanceThreshold = 10.0;  // in cm
+
+  while (true) {
+    checksensors();  // Check sensor
+
+    float distanceL = readDistanceCM();  // Left sensor
+    Serial.print("Left Sensor Distance: ");
+    Serial.print(distanceL);
+    Serial.println(" cm");
+
+    if (distanceL > minDistanceThreshold) {
+      // If the left sensor detects a gap, turn 45 degrees left twice
+      brake();
+
+      Serial.println("Gap detected on the left, turning 45 degrees left twice.");
+
+      turnfourtyfiveleft();
+
+      delay(200);
+
+      turnfourtyfiveleft();
+
+      moveforward();
+
+      delay(100);
+
+      moveten();
+
+    } else {
+     
+      float distance1 = readDistanceCM();      // Check the front sensor
+      Serial.print("Sensor 1 Distance: ");
+      Serial.print(distance1);
+      Serial.println(" cm");
+
+      if (distance1 < minDistanceThreshold) {   // If a wall is detected in front, stop and turn 180 degrees
+       
+        brake();
+
+        Serial.println("Wall detected ahead, stopping and turning 180 degrees.");
+
+        turnfourtyfiveleft();
+
+        delay(100);
+
+        turnfourtyfiveleft();
+
+        delay(100);
+
+        turnfourtyfiveleft();
+
+        delay(100);
+
+        turnfourtyfiveleft();
+
+        // Resume looking for a gap in the left wall
+        moveforward();
+      } else {
+        // Continue moving forward if there's no wall ahead
+        moveforward();
+      }
+    }
+
+    delay(100);  // Small delay to avoid excessive sensor polling
+  }
+}
+
 
 
 void checksensors() {
@@ -547,12 +630,7 @@ void loop() {
     } else if (command == 'b') {  // 'b' for stop
       brake();
     } else if (command == 'go') {  // 'go' for stop
-      forward();
-      motorSpeedA = 0.3;  // Motor A speed
-      motorSpeedB = 0.3;  // Motor B speed
-      motorA_pwm.write(motorSpeedA);
-      motorB_pwm.write(motorSpeedB);
-      //equalizeMotor();
+      moveforward();
     } else if (command == 'u') {  // 'u' for +0.1
       motorA_up();
       motorB_up();
@@ -574,9 +652,11 @@ void loop() {
       checknmove();
     } else if (command == 'r') {
       moveback();
+    } else if (command == 'o') {
+      turn180();
     }
 
-    //checksensors();
+    checksensors();
 
     // Calculate and print speed every second
     if (speedTimer.read() >= 1.0) {  // 1 second elapsed
