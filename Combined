@@ -275,8 +275,8 @@ void moveten() {
 
   // Move until the robot has traveled 10 cm
   while (distanceA < 0.05 && distanceB < 0.05) {  // 0.1 m = 10 cm
-    DistanceA();                                // Update the distance for Motor A
-    DistanceB();                                // Update the distance for Motor B
+    DistanceA();                                  // Update the distance for Motor A
+    DistanceB();                                  // Update the distance for Motor B
 
     // Optional: Print out the current distance (for debugging purposes)
     Serial.print("Motor A distance: ");
@@ -500,7 +500,7 @@ void checknmovef() {
   }
 }
 
-/*void checknmovel() {
+void checknmovel() {
 
   float minDistanceThreshold = 10.0;  // in cm
 
@@ -600,7 +600,7 @@ void checknmove1() {
 
     delay(100);  // Small delay to avoid excessive sensor polling
   }
-}*/
+}
 
 void checknmove() {
   float minDistanceThresholdFront = 10.0;  // in cm
@@ -623,6 +623,8 @@ void checknmove() {
     Serial.println(" cm");
 
     if (distanceL > minDistanceThresholdLeft) {
+
+      moveten();
 
       brake();
 
