@@ -76,6 +76,8 @@ volatile float distance2;
 volatile float distanceL;
 volatile float distanceR;
 
+
+
 //Maze
 const int mazeWidth = 29;
 const int mazeHeight = 40;
@@ -184,22 +186,27 @@ void markAsUnknown(int x, int y) {
 int dx(int direction) {
   // Determine how to move in the X direction based on the robot's orientation
   if (direction == 1) {
-    return 1;  // Move right (East)
+    return 1;  // Move right, East
   } else if (direction == 3) {
-    return -1;  // Move left (West)
+    return -1;  // Move left, West
   }
-  return 0;  // No movement in X (North or South)
+  return 0;  // No movement in X
 }
 
 int dy(int direction) {
   // Determine how to move in the Y direction based on the robot's orientation
   if (direction == 0) {
-    return -1;  // Move up (North)
+    return -1;  // Move up, North
   } else if (direction == 2) {
-    return 1;  // Move down (South)
+    return 1;  // Move down, South
   }
-  return 0;  // No movement in Y (East or West)
+  return 0;  // No movement in Y
 }
+
+
+
+
+
 
 // Interrupt handler for encoder A (Motor A)
 void encoderISR_A() {
@@ -240,7 +247,24 @@ void setup() {
   // Start timer for speed calculation
   speedTimer.start();
 
-  alignRobot();
+  //alignRobot();
+
+  //setStartPosition(15, 20);
+}
+
+void setStartPosition(int startX, int startY) {
+  robotX = startX;
+  robotY = startY;
+
+  // Update the map to reflect the robot's starting position
+  mazeMap[startY][startX] = 0;  // Mark as visited or free space
+  Serial.print("Robot starting position set to: (");
+  Serial.print(robotX);
+  Serial.print(", ");
+  Serial.print(robotY);
+  Serial.println(")");
+
+  displayMazeMap();  // Print the updated maze
 }
 
 void alignRobot() {
@@ -629,6 +653,59 @@ void moveforward() {
   displayMazeMap();
 }
 
+void moveforward1gird() {
+  // Assuming each move is 5 cm, which is 1 grid cell.
+  float gridSize = 0.05;  // Grid size is 5 cm (adjust if necessary)
+  float distanceTraveledA = 0;
+  float distanceTraveledB = 0;
+
+  // Reset pulse counts and distance for both motors
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
+  // Start moving the robot
+  forward();  // Move the robot forward
+
+  motorSpeedA = 0.3;  // Motor A speed
+  motorSpeedB = 0.3;  // Motor B speed
+  equalizeMotor();    // Ensure both motors are equalized
+
+  // Move until the robot has traveled 1 grid cell (5 cm)
+  while (distanceTraveledA < gridSize && distanceTraveledB < gridSize) {
+    DistanceA();  // Update the distance for Motor A
+    DistanceB();  // Update the distance for Motor B
+
+    // Debugging information (optional)
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceTraveledA * 100);  // Convert to cm
+    Serial.println(" cm");
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceTraveledB * 100);  // Convert to cm
+    Serial.println(" cm");
+
+    delay(100);  // 100 ms delay between distance checks
+  }
+
+  // Stop the motors after moving the grid size
+  brake();
+  Serial.println("Stopped after moving 5 cm (1 grid cell)");
+
+  // Update the robot's position and the maze
+  robotX += dx(robotDir);  // Update X position based on direction
+  robotY += dy(robotDir);  // Update Y position based on direction
+
+  // Update the maze based on sensor data
+  updateMazeMap();
+  displayMazeMap();  // Optional: display the updated maze
+
+  // Check sensors and update the maze based on detected walls or obstacles
+  checkSensorsAndUpdateMaze();
+
+  // Optionally, you could add a small delay here to avoid too frequent updates
+  delay(100);
+}
+
+
 
 void moveback() {
   reverse();  // Set the motors to move
@@ -663,7 +740,7 @@ void moveback() {
   }
 }
 
-void checknmovef() {
+void checknmovewallahead() {
 
   float minDistanceThreshold = 10.0;  // in cm
 
@@ -693,7 +770,7 @@ void checknmovef() {
   }
 }
 
-void checknmovel() {
+void checknmovewallleft() {
 
   float minDistanceThreshold = 10.0;  // in cm
 
@@ -796,9 +873,11 @@ void checknmove1() {
 }
 
 void checknmove() {
+
   float minDistanceThresholdFront = 15.0;  // in cm
   float minDistanceThresholdLeft = 20.0;   // in cm
-  float minDistanceThresholdRight = 20.0;
+  float minDistanceThresholdRight = 20.0;  // in cm
+
   while (true) {
     checksensors();
 
@@ -817,7 +896,9 @@ void checknmove() {
 
     if (distanceL > minDistanceThresholdLeft) {
 
-      moveten();
+      moveforward1gird();
+
+      moveforward1gird();
 
       brake();
 
@@ -919,7 +1000,37 @@ void checksensors() {
   setMultiplexerBus(MUX_BUS_0);
 }
 
-void checkSensorsAndUpdateMaze() {
+void processSensorData(float sensorDistance, int startX, int startY, int dx, int dy, bool) {
+  const int maxDistanceCm = 50;  // Maximum distance to consider
+  const int gridSizeCm = 5;      // Size of each grid cell in cm
+
+  // Convert distance to grid cells
+  int maxGridSpaces = maxDistanceCm / gridSizeCm;  // Max grid spaces (50 cm = 10 grids)
+  int freeSpaces = min(sensorDistance / gridSizeCm, maxGridSpaces);
+
+  // Mark free spaces
+  for (int i = 1; i <= freeSpaces; i++) {  // Start from 1 to skip the robot's position
+    int gridX = startX + i * dx;
+    int gridY = startY + i * dy;
+
+    // Ensure within maze bounds
+    if (gridX >= 0 && gridX < mazeWidth && gridY >= 0 && gridY < mazeHeight) {
+      mazeMap[gridY][gridX] = 0;  // Mark as free space
+    }
+  }
+
+  // Mark the wall (if within bounds)
+  if (freeSpaces < maxGridSpaces) {  // Only mark a wall if there's a limit
+    int wallX = startX + (freeSpaces + 1) * dx;
+    int wallY = startY + (freeSpaces + 1) * dy;
+
+    if (wallX >= 0 && wallX < mazeWidth && wallY >= 0 && wallY < mazeHeight) {
+      mazeMap[wallY][wallX] = 1;  // Mark as wall
+    }
+  }
+}
+
+/*void checkSensorsAndUpdateMaze() {
 
   float minDistanceThresholdLeft = 15.0;  // in cm
 
@@ -954,6 +1065,103 @@ void checkSensorsAndUpdateMaze() {
     // Mark the right grid as unknown (e.g., "?")
     markAsUnknown(robotX + 1, robotY);
   }
+}
+
+void checkSensorsAndUpdateMaze() {
+    // Directions for sensors
+    int frontDx = dx(robotDir);       // Directional change for front sensor (X)
+    int frontDy = dy(robotDir);       // Directional change for front sensor (Y)
+    int leftDx = -dy(robotDir);       // Directional change for left sensor (X)
+    int leftDy = dx(robotDir);        // Directional change for left sensor (Y)
+    int rightDx = dy(robotDir);       // Directional change for right sensor (X)
+    int rightDy = -dx(robotDir);      // Directional change for right sensor (Y)
+
+    // Process front sensor
+    processSensorData(distance1, robotX, robotY, frontDx, frontDy);
+
+    // Process left sensor
+    processSensorData(distanceL, robotX, robotY, leftDx, leftDy);
+
+    // Process right sensor
+    processSensorData(distanceR, robotX, robotY, rightDx, rightDy);
+}
+
+void checkSensorsAndUpdateMaze() {
+    // Sensor threshold for detecting walls
+    float wallThreshold = 15.0;  // Adjust as per environment (in cm)
+    int maxDistanceCells = 10;   // Maximum grid cells to mark free
+
+    // Process the front sensor
+    if (distance1 < wallThreshold) {
+        Serial.println("Wall detected ahead.");
+        processSensorData(robotX, robotY, robotDir, distance1, true);
+    } else {
+        Serial.println("No wall detected ahead.");
+        processSensorData(robotX, robotY, robotDir, distance1, false);
+    }
+
+    // Process the left sensor (relative to the center)
+    if (distanceL < wallThreshold) {
+        Serial.println("Wall detected on the left.");
+        processSensorData(robotX, robotY, (robotDir + 3) % 4, distanceL, true);
+    } else {
+        Serial.println("No wall detected on the left.");
+        processSensorData(robotX, robotY, (robotDir + 3) % 4, distanceL, false);
+    }
+
+    // Process the right sensor (relative to the center)
+    if (distanceR < wallThreshold) {
+        Serial.println("Wall detected on the right.");
+        processSensorData(robotX, robotY, (robotDir + 1) % 4, distanceR, true);
+    } else {
+        Serial.println("No wall detected on the right.");
+        processSensorData(robotX, robotY, (robotDir + 1) % 4, distanceR, false);
+    }
+
+    // Optionally: Add rear sensor handling if applicable
+}*/
+
+void checkSensorsAndUpdateMaze() {
+  // Sensor threshold for detecting walls
+  float wallThreshold = 15.0;  // Adjust as per environment (in cm)
+  int maxDistanceCells = 10;   // Maximum grid cells to mark free
+
+  // Directions for sensors
+  int frontDx = dx(robotDir);   // Directional change for front sensor (X)
+  int frontDy = dy(robotDir);   // Directional change for front sensor (Y)
+  int leftDx = -dy(robotDir);   // Directional change for left sensor (X)
+  int leftDy = dx(robotDir);    // Directional change for left sensor (Y)
+  int rightDx = dy(robotDir);   // Directional change for right sensor (X)
+  int rightDy = -dx(robotDir);  // Directional change for right sensor (Y)
+
+  // Process the front sensor
+  if (distance1 < wallThreshold) {
+    Serial.println("Wall detected ahead.");
+    processSensorData(robotX, robotY, frontDx, frontDy, distance1, true);
+  } else {
+    Serial.println("No wall detected ahead.");
+    processSensorData(robotX, robotY, frontDx, frontDy, distance1, false);
+  }
+
+  // Process the left sensor
+  if (distanceL < wallThreshold) {
+    Serial.println("Wall detected on the left.");
+    processSensorData(robotX, robotY, leftDx, leftDy, distanceL, true);
+  } else {
+    Serial.println("No wall detected on the left.");
+    processSensorData(robotX, robotY, leftDx, leftDy, distanceL, false);
+  }
+
+  // Process the right sensor
+  if (distanceR < wallThreshold) {
+    Serial.println("Wall detected on the right.");
+    processSensorData(robotX, robotY, rightDx, rightDy, distanceR, true);
+  } else {
+    Serial.println("No wall detected on the right.");
+    processSensorData(robotX, robotY, rightDx, rightDy, distanceR, false);
+  }
+
+  // Optionally: Add rear sensor handling if applicable
 }
 
 
@@ -1037,7 +1245,9 @@ void loop() {
     } else if (command == 'j') {  // 'j' turn right 45
       turnfourtyfiveright();
     } else if (command == 'p') {
-      checknmovel();
+      checkSensorsAndUpdateMaze();
+      updateMazeMap();
+      displayMazeMap();
     } else if (command == 'l90') {  // '90' turn left 90
       turnfourtyfiveleft();
       turnfourtyfiveleft();
