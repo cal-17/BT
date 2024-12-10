@@ -128,14 +128,16 @@ void displayMazeMap() {
 void updateMazeMap() {
   // Mark all the cells occupied by the robot as empty (0)
   //for (int i = 0; i < robotHeight; i++) {
-    //for (int j = 0; j < robotWidth; j++) {
-      
+  //for (int j = 0; j < robotWidth; j++) {
+  for (int i = -1; i <= 1; i++) {  // Offset for the 3x3 grid
+    for (int j = -1; j <= 1; j++) {
+
       int gridX = robotX + j;
       int gridY = robotY + i;
 
       // Ensure the grid coordinates are within bounds
       if (gridX >= 0 && gridX < mazeWidth && gridY >= 0 && gridY < mazeHeight) {
-        mazeMap[gridY][gridX] = 0;  // Empty
+        mazeMap[gridY][gridX] = 2;  // Robot
 
         Serial.print("Marked grid at (");
         Serial.print(gridX);
@@ -145,10 +147,10 @@ void updateMazeMap() {
       }
     }
   }
-  // Mark the robot's center position as 'X'
+  /*  // Mark the robot's center position as 'X'
   if (robotX >= 0 && robotX < mazeWidth && robotY >= 0 && robotY < mazeHeight) {
     mazeMap[robotY][robotX] = 2;  // Use 2 to represent the robot in the map
-  }
+  }*/
 
   // Display robot's new position
   Serial.print("Robot's position marked at: (");
@@ -549,10 +551,54 @@ void turnfourtyfiveleft() {
   // Once the robot has moved 10 cm, stop the motors
   brake();
 
-  // Update robot's direction after a 45-degree left turn (counterclockwise)
-  robotDir = (robotDir - 1 + 4) % 4;  // Update direction by -1 (mod 4)
+  //robotDir = (robotDir - 1 + 4) % 4;  // Update direction by -1 (mod 4)
 
   Serial.println("Turned Left 45");
+}
+
+void turnninetyleft() {
+  Serial.println(" Start turn");
+
+  left();  // Set the motors to move forward
+
+  // Reset pulse counts to track how many pulses have been received
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
+  motorSpeedA = 0.3;  // Motor A speed
+  motorSpeedB = 0.3;  // Motor B speed
+
+  equalizeMotor();
+
+  DistanceA();  // Update the distance for Motor A before loop set to 0
+  DistanceB();  // Update the distance for Motor B before loop set to 0
+
+  // Calculate the number of pulses needed to move 10 cm
+  //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
+
+  // Move until the robot has traveled 10 cm
+  while (distanceA < 0.07 && distanceB < 0.07) {  //   0.0365
+    DistanceA();                                  // Update the distance for Motor A
+    DistanceB();                                  // Update the distance for Motor B
+
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA * 100);
+    Serial.println(" cm");
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB * 100);
+    Serial.println(" cm");
+
+    // Allow time for the loop to run at a reasonable speed
+    delay(100);  // 100ms delay between distance checks
+  }
+
+  // Once the robot has moved 10 cm, stop the motors
+  brake();
+
+  // Update robot's direction after a 90-degree left turn (counterclockwise)
+  robotDir = (robotDir - 1 + 4) % 4;  // Update direction by -1 (mod 4)
+
+  Serial.println("Turned Left 90");
 }
 
 void turnfourtyfiveright() {
@@ -593,21 +639,16 @@ void turnfourtyfiveright() {
   // Once the robot has moved 10 cm, stop the motors
   brake();
 
-  // Update robot's direction after a 45-degree right turn (clockwise)
-  robotDir = (robotDir + 1) % 4;  // Update direction by +1 (mod 4)
+  //robotDir = (robotDir + 1) % 4;  // Update direction by +1 (mod 4)
 
   Serial.println("Turned Right 45");
 }
 
 
 void turn180() {
-  turnfourtyfiveleft();
+  turnninetyleft();
   delay(250);
-  turnfourtyfiveleft();
-  delay(250);
-  turnfourtyfiveleft();
-  delay(250);
-  turnfourtyfiveleft();
+  turnninetyleft();
   delay(250);
 
   brake();
@@ -1262,15 +1303,14 @@ void loop() {
     } else if (command == 'm') {  // 'm' move 10cm
       moveten();
     } else if (command == 'l') {  // 'l' turn left 45
-      turnfourtyfiveleft();
+      turnninetyleft();
     } else if (command == 'j') {  // 'j' turn right 45
       turnfourtyfiveright();
     } else if (command == 'p') {
       checkSensorsAndUpdateMaze();
       updateMazeMap();
       displayMazeMap();
-    } else if (command == 'l90') {  // '90' turn left 90
-      turnfourtyfiveleft();
+    } else if (command == 'c') {  // '90' turn left 90
       turnfourtyfiveleft();
     } else if (command == 't') {
       checknmove();
