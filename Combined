@@ -896,9 +896,9 @@ void checknmove() {
 
     if (distanceL > minDistanceThresholdLeft) {
 
-      moveforward1gird();
-
-      moveforward1gird();
+     // moveforward1gird();
+ moveten();
+    //  moveforward1gird();
 
       brake();
 
