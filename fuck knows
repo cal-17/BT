@@ -87,7 +87,7 @@ int mazeMap[mazeHeight][mazeWidth];
 
 // Robot's current position and direction
 int robotX = 2;
-int robotY = 2;
+int robotY = 37;
 int robotDir = 0;  // 0= Up-North, 1= Right-East, 2= Down-South, 3= Left-West
 
 
@@ -115,6 +115,8 @@ void displayMazeMap() {
         Serial.print(" ? ");  // Unknown
       } else if (mazeMap[y][x] == 0) {
         Serial.print(" . ");  // Empty space
+      } else if (mazeMap[y][x] == 2) {
+        Serial.print(" X ");  // Robot
       }
     }
     Serial.println();
@@ -125,14 +127,16 @@ void displayMazeMap() {
 
 void updateMazeMap() {
   // Mark all the cells occupied by the robot as empty (0)
-  for (int i = 0; i < robotHeight; i++) {
-    for (int j = 0; j < robotWidth; j++) {
+  //for (int i = 0; i < robotHeight; i++) {
+    //for (int j = 0; j < robotWidth; j++) {
+      
       int gridX = robotX + j;
       int gridY = robotY + i;
 
       // Ensure the grid coordinates are within bounds
       if (gridX >= 0 && gridX < mazeWidth && gridY >= 0 && gridY < mazeHeight) {
         mazeMap[gridY][gridX] = 0;  // Empty
+
         Serial.print("Marked grid at (");
         Serial.print(gridX);
         Serial.print(", ");
@@ -141,7 +145,20 @@ void updateMazeMap() {
       }
     }
   }
+  // Mark the robot's center position as 'X'
+  if (robotX >= 0 && robotX < mazeWidth && robotY >= 0 && robotY < mazeHeight) {
+    mazeMap[robotY][robotX] = 2;  // Use 2 to represent the robot in the map
+  }
+
+  // Display robot's new position
+  Serial.print("Robot's position marked at: (");
+  Serial.print(robotX);
+  Serial.print(", ");
+  Serial.print(robotY);
+  Serial.println(") as 'X'.");
 }
+
+
 
 void markAsWall(int x, int y) {
   // Mark the cells occupied by the robot as walls (1)
@@ -285,6 +302,7 @@ void alignRobot() {
 }
 
 void alignFront() {
+  checksensors();
   // First, check the distance to the front wall
   while (distance1 > 0.10) {  // If the front sensor is further than 5 cm, move forward
     forward();                // Move forward
@@ -1026,6 +1044,54 @@ void processSensorData(float sensorDistance, int startX, int startY, int dx, int
   }
 }
 
+void checkSensorsAndUpdateMaze() {
+  // Sensor threshold for detecting walls
+  float Threshold = 50.0;     // Adjust as per environment (in cm)
+  int maxDistanceCells = 10;  // Maximum grid cells to mark free
+
+  checksensors();
+
+  // Directions for sensors
+  int frontDx = dx(robotDir);   // Directional change for front sensor (X)
+  int frontDy = dy(robotDir);   // Directional change for front sensor (Y)
+  int leftDx = -dy(robotDir);   // Directional change for left sensor (X)
+  int leftDy = dx(robotDir);    // Directional change for left sensor (Y)
+  int rightDx = dy(robotDir);   // Directional change for right sensor (X)
+  int rightDy = -dx(robotDir);  // Directional change for right sensor (Y)
+
+  // Process the front sensor
+  if (distance1 < Threshold) {
+    Serial.print(distance1);
+    Serial.println("Wall detected ahead.");
+    processSensorData(distance1, robotX, robotY, frontDx, frontDy, true);
+  } else {
+    Serial.println("No wall detected ahead.");
+    processSensorData(distance1, robotX, robotY, frontDx, frontDy, false);
+  }
+
+  // Process the left sensor
+  if (distanceL < Threshold) {
+    Serial.print(distanceL);
+    Serial.println("Wall detected on the left.");
+    processSensorData(distanceL, robotX, robotY, leftDx, leftDy, true);
+  } else {
+    Serial.println("No wall detected on the left.");
+    processSensorData(distanceL, robotX, robotY, leftDx, leftDy, false);
+  }
+
+  // Process the right sensor
+  if (distanceR < Threshold) {
+    Serial.print(distanceR);
+    Serial.println("Wall detected on the right.");
+    processSensorData(distanceR, robotX, robotY, rightDx, rightDy, true);
+  } else {
+    Serial.println("No wall detected on the right.");
+    processSensorData(distanceR, robotX, robotY, rightDx, rightDy, false);
+  }
+
+  // Optionally: Add rear sensor handling if applicable
+}
+
 /*void checkSensorsAndUpdateMaze() {
 
   float minDistanceThresholdLeft = 15.0;  // in cm
@@ -1117,48 +1183,7 @@ void checkSensorsAndUpdateMaze() {
     // Optionally: Add rear sensor handling if applicable
 }
 */
-void checkSensorsAndUpdateMaze() {
-  // Sensor threshold for detecting walls
-  float wallThreshold = 10.0;  // Adjust as per environment (in cm)
-  int maxDistanceCells = 10;   // Maximum grid cells to mark free
 
-  // Directions for sensors
-  int frontDx = dx(robotDir);   // Directional change for front sensor (X)
-  int frontDy = dy(robotDir);   // Directional change for front sensor (Y)
-  int leftDx = -dy(robotDir);   // Directional change for left sensor (X)
-  int leftDy = dx(robotDir);    // Directional change for left sensor (Y)
-  int rightDx = dy(robotDir);   // Directional change for right sensor (X)
-  int rightDy = -dx(robotDir);  // Directional change for right sensor (Y)
-
-  // Process the front sensor
-  if (distance1 < wallThreshold) {
-    Serial.println("Wall detected ahead.");
-    processSensorData(robotX, robotY, frontDx, frontDy, distance1, true);
-  } else {
-    Serial.println("No wall detected ahead.");
-    processSensorData(robotX, robotY, frontDx, frontDy, distance1, false);
-  }
-
-  // Process the left sensor
-  if (distanceL < wallThreshold) {
-    Serial.println("Wall detected on the left.");
-    processSensorData(robotX, robotY, leftDx, leftDy, distanceL, true);
-  } else {
-    Serial.println("No wall detected on the left.");
-    processSensorData(robotX, robotY, leftDx, leftDy, distanceL, false);
-  }
-
-  // Process the right sensor
-  if (distanceR < wallThreshold) {
-    Serial.println("Wall detected on the right.");
-    processSensorData(robotX, robotY, rightDx, rightDy, distanceR, true);
-  } else {
-    Serial.println("No wall detected on the right.");
-    processSensorData(robotX, robotY, rightDx, rightDy, distanceR, false);
-  }
-
-  // Optionally: Add rear sensor handling if applicable
-}
 
 
 // Function to handle I2C errors
