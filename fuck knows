@@ -116,7 +116,9 @@ void displayMazeMap() {
       } else if (mazeMap[y][x] == 0) {
         Serial.print(" . ");  // Empty space
       } else if (mazeMap[y][x] == 2) {
-        Serial.print(" X ");  // Robot
+        Serial.print(" X ");  // Robot Centre
+      } else if (mazeMap[y][x] == 3) {
+        Serial.print(" R ");  // Robot
       }
     }
     Serial.println();
@@ -132,25 +134,25 @@ void updateMazeMap() {
   for (int i = -1; i <= 1; i++) {  // Offset for the 3x3 grid
     for (int j = -1; j <= 1; j++) {
 
-      int gridX = robotX + j;
-      int gridY = robotY + i;
+      int surroundingX = robotX + j;
+      int surroundingY = robotY + i;
 
       // Ensure the grid coordinates are within bounds
-      if (gridX >= 0 && gridX < mazeWidth && gridY >= 0 && gridY < mazeHeight) {
-        mazeMap[gridY][gridX] = 2;  // Robot
+      if (surroundingX >= 0 && surroundingX < mazeWidth && surroundingY >= 0 && surroundingY < mazeHeight) {
+        mazeMap[surroundingY][surroundingX] = 3;  // Robot
 
         Serial.print("Marked grid at (");
-        Serial.print(gridX);
+        Serial.print(surroundingX);
         Serial.print(", ");
-        Serial.print(gridY);
+        Serial.print(surroundingY);
         Serial.println(") as empty.");
       }
     }
   }
-  /*  // Mark the robot's center position as 'X'
+    // Mark the robot's center position as 'X'
   if (robotX >= 0 && robotX < mazeWidth && robotY >= 0 && robotY < mazeHeight) {
     mazeMap[robotY][robotX] = 2;  // Use 2 to represent the robot in the map
-  }*/
+  }
 
   // Display robot's new position
   Serial.print("Robot's position marked at: (");
@@ -162,7 +164,7 @@ void updateMazeMap() {
 
 
 
-void markAsWall(int x, int y) {
+/*void markAsWall(int x, int y) {
   // Mark the cells occupied by the robot as walls (1)
   for (int i = 0; i < robotHeight; i++) {
     for (int j = 0; j < robotWidth; j++) {
@@ -201,7 +203,7 @@ void markAsUnknown(int x, int y) {
     }
   }
 }
-
+*/
 int dx(int direction) {
   // Determine how to move in the X direction based on the robot's orientation
   if (direction == 1) {
@@ -599,6 +601,50 @@ void turnninetyleft() {
   robotDir = (robotDir - 1 + 4) % 4;  // Update direction by -1 (mod 4)
 
   Serial.println("Turned Left 90");
+}
+
+void turnninetyright() {
+  Serial.println(" Start turn");
+
+  right();  // Set the motors to move forward
+
+  // Reset pulse counts to track how many pulses have been received
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+
+  motorSpeedA = 0.3;  // Motor A speed
+  motorSpeedB = 0.3;  // Motor B speed
+
+  equalizeMotor();
+
+  DistanceA();  // Update the distance for Motor A before loop set to 0
+  DistanceB();  // Update the distance for Motor B before loop set to 0
+
+  // Calculate the number of pulses needed to move 10 cm
+  //float pulsesToMove = 10.0 / distancePerPulseA;  // Distance in cm / distance per pulse (in meters)
+
+  // Move until the robot has traveled 10 cm
+  while (distanceA < 0.07 && distanceB < 0.07) {  //   0.0365
+    DistanceA();                                  // Update the distance for Motor A
+    DistanceB();                                  // Update the distance for Motor B
+
+    Serial.print("Motor A distance: ");
+    Serial.print(distanceA * 100);
+    Serial.println(" cm");
+    Serial.print("Motor B distance: ");
+    Serial.print(distanceB * 100);
+    Serial.println(" cm");
+
+    // Allow time for the loop to run at a reasonable speed
+    delay(100);  // 100ms delay between distance checks
+  }
+
+  // Once the robot has moved 10 cm, stop the motors
+  brake();
+
+  robotDir = (robotDir + 1) % 4;  // Update direction by +1 (mod 4)
+
+  Serial.println("Turned Right 90");
 }
 
 void turnfourtyfiveright() {
@@ -1058,6 +1104,8 @@ void checksensors() {
 void processSensorData(float sensorDistance, int startX, int startY, int dx, int dy, bool) {
   const int maxDistanceCm = 50;  // Maximum distance to consider
   const int gridSizeCm = 5;      // Size of each grid cell in cm
+  int offset = 1;                // Physical sesnsor offset
+
 
   // Convert distance to grid cells
   int maxGridSpaces = maxDistanceCm / gridSizeCm;  // Max grid spaces (50 cm = 10 grids)
@@ -1076,8 +1124,8 @@ void processSensorData(float sensorDistance, int startX, int startY, int dx, int
 
   // Mark the wall (if within bounds)
   if (freeSpaces < maxGridSpaces) {  // Only mark a wall if there's a limit
-    int wallX = startX + (freeSpaces + 1) * dx;
-    int wallY = startY + (freeSpaces + 1) * dy;
+    int wallX = startX + (freeSpaces + offset + 1) * dx;
+    int wallY = startY + (freeSpaces + offset + 1) * dy;
 
     if (wallX >= 0 && wallX < mazeWidth && wallY >= 0 && wallY < mazeHeight) {
       mazeMap[wallY][wallX] = 1;  // Mark as wall
