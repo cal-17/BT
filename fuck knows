@@ -1,6 +1,8 @@
 #include <mbed.h>
+using namespace rtos;
+using namespace mbed;
 
-//Sensors
+//Sensors----------------------------------------------------------------------------
 // I2C multiplexer and sensor addresses
 #define MULTIPLEXER_ADDR 0xEE  // Multiplexer I2C address
 #define SENSOR_ADDR 0x80       // Infrared sensor I2C address
@@ -20,24 +22,30 @@
 #define SDA_PIN P0_2
 
 // Instantiate the I2C object
-mbed::I2C i2c(SCL_PIN, SDA_PIN);
+I2C i2c(SCL_PIN, SDA_PIN);
 
 void setMultiplexerBus(uint8_t busCommand);
 float readDistanceCM();
 void handleI2CError(int result);
 
-//Motors
+volatile float distance1;
+volatile float distance2;
+volatile float distanceL;
+volatile float distanceR;
+//----------------------------------------------------------------------------------
+
+//Motors----------------------------------------------------------------------------
 // Define PWM pins for the motors
-mbed::PwmOut motorA_pwm(P1_2);   // Motor 1 PWM pin
-mbed::PwmOut motorB_pwm(P0_27);  // Motor 2 PWM pin
+PwmOut motorA_pwm(P1_2);   // Motor 1 PWM pin
+PwmOut motorB_pwm(P0_27);  // Motor 2 PWM pin
 
 // Define direction control pins for the motors
-mbed::DigitalOut motorA_dir(P0_4);  // Motor 1 direction pin
-mbed::DigitalOut motorB_dir(P0_5);  // Motor 2 direction pin
+DigitalOut motorA_dir(P0_4);  // Motor 1 direction pin
+DigitalOut motorB_dir(P0_5);  // Motor 2 direction pin
 
 // Define Encoder pins for Motor A and Motor B
-mbed::InterruptIn encoderA(P1_12);
-mbed::InterruptIn encoderB(P1_11);
+InterruptIn encoderA(P1_12);
+InterruptIn encoderB(P1_11);
 
 
 // Define motor speed (between 0.0 and 1.0)
@@ -67,18 +75,10 @@ volatile float wheelCircumference = 3.14159 * wheelDiameter;                   /
 volatile float distancePerPulseA = wheelCircumference / pulsesPerRevolutionA;  // Distance per pulse for Motor A
 volatile float distancePerPulseB = wheelCircumference / pulsesPerRevolutionB;  // Distance per pulse for Motor B
 
-mbed::Timer speedTimer;  // Timer to calculate motor speed every second
-
 volatile int Equalized = 0;
+//----------------------------------------------------------------------------------
 
-volatile float distance1;
-volatile float distance2;
-volatile float distanceL;
-volatile float distanceR;
-
-
-
-//Maze
+//Maze------------------------------------------------------------------------------
 const int mazeWidth = 29;
 const int mazeHeight = 40;
 volatile float gridSize = 0.05;  //cm
@@ -93,8 +93,37 @@ int robotDir = 0;  // 0= Up-North, 1= Right-East, 2= Down-South, 3= Left-West
 
 const int robotWidth = 3;
 const int robotHeight = 3;
+//----------------------------------------------------------------------------------
 
-volatile float wallThreshold = 10.0;  // Wall detection threshold in cm
+//Thread----------------------------------------------------------------------------
+
+
+Thread MovementControlThread;
+volatile bool runningMovementControl = true;
+
+Thread SensorsThread;
+volatile bool runningSensors = true;
+
+Thread MappingThread;
+volatile bool runningMapping = true;
+
+void stopThreads() {
+    runningMovementControl = false;
+    MovementControlThread.join();
+
+    runningSensors = false;
+    SensorsThread.join();
+
+    runningMapping = false;
+    MappingThread.join();
+}
+//----------------------------------------------------------------------------
+
+Timer speedTimer;  // Timer to calculate motor speed every second
+
+
+
+//volatile float wallThreshold = 10.0;  // Wall detection threshold in cm
 
 void initializeMazeMap() {
   // Set all cells to unknown (-1)
