@@ -1,6 +1,50 @@
-float distance2 = readDistanceCM();
-    Serial.print("Sensor 2 Distance: ");
-    Serial.print(distance2);
+void maintainDistanceFromRightWall() {
+    const float distanceThreshold = 1.0;   // Allowable difference in cm
+    const float targetDistance = 10.0;    // Desired distance from the wall in cm
+
+    // Read distances from both side sensors
+    setMultiplexerBus(MUX_BUS_2);  // Rear side sensor (Rear Right)
+    float rearDistance = readDistanceCM();
+
+    setMultiplexerBus(MUX_BUS_1);  // Front right sensor
+    float frontDistance = readDistanceCM();
+
+    Serial.print("Rear Sensor Distance: ");
+    Serial.print(rearDistance);
     Serial.println(" cm");
 
-    delay(500);  // 500 ms delay
+    Serial.print("Front Right Sensor Distance: ");
+    Serial.print(frontDistance);
+    Serial.println(" cm");
+
+    // Calculate distance difference
+    float distanceDifference = rearDistance - frontDistance;
+
+    if (abs(distanceDifference) <= distanceThreshold) {
+        // Robot is parallel to the wall; move forward
+        motorSpeedA = 0.3;
+        motorSpeedB = 0.3;
+    } else if (distanceDifference > 0) {
+        // Front is farther from the wall; adjust left
+        motorSpeedA = 0.2;  // Right motor moves faster
+        motorSpeedB = 0.1;  // Left motor moves slower
+    } else {
+        // Rear is farther from the wall; adjust right
+        motorSpeedA = 0.1;  // Right motor moves slower
+        motorSpeedB = 0.2;  // Left motor moves faster
+    }
+
+    // Maintain target distance from the wall
+    if (abs(rearDistance - targetDistance) > distanceThreshold || 
+        abs(frontDistance - targetDistance) > distanceThreshold) {
+        if (rearDistance < targetDistance && frontDistance < targetDistance) {
+            // Too close to the wall; steer slightly left
+            motorSpeedA = 0.2;
+            motorSpeedB = 0.1;
+        } else if (rearDistance > targetDistance && frontDistance > targetDistance) {
+            // Too far from the wall; steer slightly right
+            motorSpeedA = 0.1;
+            motorSpeedB = 0.2;
+        }
+    }
+}
