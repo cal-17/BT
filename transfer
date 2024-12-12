@@ -1,38 +1,67 @@
-void maintainDistanceFromRightWall() {
-    const float distanceThreshold = 1.0;   // Allowable difference in cm for alignment
-    const float targetDistance = 10.0;    // Desired distance from the wall in cm
-    const float adjustmentIncrement = 0.01; // Increment for speed adjustment
-    const float baseSpeed = 0.25;         // Base motor speed
+void alignFrontWithTwoSensors() {
+    const float targetDistance = 0.10;      // Target distance from the wall in meters
+    const float distanceTolerance = 0.01;  // Allowable error in meters (e.g., ±1 cm)
+    const float alignmentTolerance = 0.01; // Allowable error between the two sensors
+    const float fastSpeed = 0.3;           // Speed for larger corrections
+    const float slowSpeed = 0.1;           // Speed for fine corrections
 
     while (true) {
-        // Read distances from sensors (replace these with actual sensor readings)
-        float rearDistance = 12.0;   // Replace with rear sensor reading
-        float frontDistance = 10.0;  // Replace with front sensor reading
+        checksensors();  // Update distance readings (ensure this updates `frontLeftDistance` and `frontRightDistance`)
 
-        Serial.print("Rear Sensor Distance: ");
-        Serial.print(rearDistance);
-        Serial.println(" cm");
+        // Read distances from the two front sensors
+        float frontLeftDistance = getFrontLeftSensor();   // Replace with actual function to read sensor
+        float frontRightDistance = getFrontRightSensor(); // Replace with actual function to read sensor
 
-        Serial.print("Front Sensor Distance: ");
-        Serial.print(frontDistance);
-        Serial.println(" cm");
+        // Calculate average distance to the wall
+        float averageDistance = (frontLeftDistance + frontRightDistance) / 2;
 
-        // Calculate the difference between the front and rear distances
-        float distanceDifference = rearDistance - frontDistance;
+        // Debugging output
+        Serial.print("Front Left Distance: ");
+        Serial.println(frontLeftDistance);
+        Serial.print("Front Right Distance: ");
+        Serial.println(frontRightDistance);
+        Serial.print("Average Distance: ");
+        Serial.println(averageDistance);
 
-        if (distanceDifference > distanceThreshold) {
-            // Front is farther from the wall; adjust left
-            motorSpeedA = max(motorSpeedA - adjustmentIncrement, 0.0);  // Decrease right motor speed
-            motorSpeedB = min(motorSpeedB + adjustmentIncrement, 1.0);  // Increase left motor speed
-        } else if (distanceDifference < -distanceThreshold) {
-            // Rear is farther from the wall; adjust right
-            motorSpeedA = min(motorSpeedA + adjustmentIncrement, 1.0);  // Increase right motor speed
-            motorSpeedB = max(motorSpeedB - adjustmentIncrement, 0.0);  // Decrease left motor speed
-        } else {
-            // Robot is aligned; maintain base speed
-            motorSpeedA = baseSpeed;
-            motorSpeedB = baseSpeed;
+        // Check if robot is within the target range
+        if (averageDistance > targetDistance + distanceTolerance) {
+            forward();  // Move forward
+            motorSpeedA = fastSpeed;
+            motorSpeedB = fastSpeed;
+        } 
+        else if (averageDistance < targetDistance - distanceTolerance) {
+            reverse();  // Move backward
+            motorSpeedA = fastSpeed;
+            motorSpeedB = fastSpeed;
+        } 
+        else {
+            stopMotors();  // Stop the robot
+            Serial.println("Front alignment complete.");
+            break;  // Exit the loop
         }
+
+        // Check for alignment
+        float sensorDifference = frontLeftDistance - frontRightDistance;
+
+        if (abs(sensorDifference) > alignmentTolerance) {
+            // If left is farther, turn slightly right
+            if (sensorDifference > 0) {
+                motorSpeedA = slowSpeed;  // Slow down right motor
+                motorSpeedB = fastSpeed; // Speed up left motor
+            } 
+            // If right is farther, turn slightly left
+            else {
+                motorSpeedA = fastSpeed;  // Speed up right motor
+                motorSpeedB = slowSpeed; // Slow down left motor
+            }
+        } 
+        else {
+            // Maintain equal motor speeds for forward/backward motion
+            motorSpeedA = fastSpeed;
+            motorSpeedB = fastSpeed;
+        }
+
+        equalizeMotor();  // Ensure motor speed adjustments are applied correctly
 
         // Debugging output
         Serial.print("Motor Speed A: ");
@@ -40,11 +69,6 @@ void maintainDistanceFromRightWall() {
         Serial.print("Motor Speed B: ");
         Serial.println(motorSpeedB);
 
-        // Write motor speeds
-        motorA_pwm.write(motorSpeedA);
-        motorB_pwm.write(motorSpeedB);
-
-        // Allow time for adjustments
-        delay(50);
+        delay(100);  // Adjust delay to balance precision and responsiveness
     }
 }
