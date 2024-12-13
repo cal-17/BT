@@ -430,39 +430,23 @@ void alignFrontWithTwoSensors() {
 
     // Debugging output
     Serial.print("Front Left Distance: ");
-    Serial.println(distance1);
+    Serial.print(distance1);
     Serial.println(" cm");
     Serial.print("Front Right Distance: ");
-    Serial.println(distance2);
+    Serial.print(distance2);
     Serial.println(" cm");
     Serial.print("Average Distance: ");
-    Serial.println(averageDistance);
+    Serial.print(averageDistance);
     Serial.println(" cm");
-
-
-    // Check if robot is within the target range
-    if (averageDistance > targetDistance + distanceTolerance) {
-      forward();  // Move forward
-      motorSpeedA = 0.2;
-      motorSpeedB = 0.2;
-    } else if (averageDistance < targetDistance - distanceTolerance) {
-      reverse();  // Move backward
-      motorSpeedA = 0.2;
-      motorSpeedB = 0.2;
-    } else {
-      brake();  // Stop the robot
-      Serial.println("Front alignment complete.");
-      break;  // Exit the loop
-    }
 
     // Check for alignment
     float sensorAlignmentDifference = distance1 - distance2;
 
     if (abs(sensorAlignmentDifference) <= alignmentTolerance) {
       // If the difference is within the threshold, alignment is complete
-      motorSpeedA = 0.05;
-      motorSpeedB = 0.05;
-
+      motorSpeedA = 0.2;
+      motorSpeedB = 0.2;
+      Serial.println(sensorAlignmentDifference);
       // Stop the motors and exit the alignment loop
       brake();
       Serial.println("Front wall alignment complete.");
@@ -470,10 +454,10 @@ void alignFrontWithTwoSensors() {
     } else if (sensorAlignmentDifference > distanceTolerance) {
       // Left side is farther; adjust left motor
       //motorSpeedA = baseSpeed;  // Keep right motor at base speed
-      motorSpeedB = min(motorSpeedB + adjustment, 1.0);  // Increase left motor speed
+      motorSpeedB = min(motorSpeedB /*+ adjustment*/, 0.2);  // Increase left motor speed
     } else if (sensorAlignmentDifference < -distanceTolerance) {
       // Right side is farther; adjust right motor
-      motorSpeedA = min(motorSpeedA + adjustment, 1.0);  // Increase right motor speed
+      motorSpeedA = min(motorSpeedA /*+ adjustment*/, 0.2);  // Increase right motor speed
       //motorSpeedB = baseSpeed;  // Keep left motor at base speed
     }
 
@@ -486,6 +470,35 @@ void alignFrontWithTwoSensors() {
     // Write motor speeds to the motors
     motorA_pwm.write(motorSpeedA);
     motorB_pwm.write(motorSpeedB);
+
+    // Check if robot is within the target range
+    if (distance1 > targetDistance + distanceTolerance || distance2 > targetDistance + distanceTolerance) {
+      //if (averageDistance > targetDistance + distanceTolerance) {
+      forward();  // Move forward
+      motorSpeedA = 0.2;
+      motorSpeedB = 0.2;
+      Serial.print("Front Left Distance: ");
+      Serial.print(distance1);
+      Serial.println(" cm");
+      Serial.print("Front Right Distance: ");
+      Serial.print(distance2);
+      Serial.println(" cm");
+    } else if (distance1 < targetDistance - distanceTolerance || distance2 < targetDistance - distanceTolerance) {
+      //} else if (averageDistance < targetDistance /*- distanceTolerance*/) {
+      reverse();  // Move backward
+      motorSpeedA = 0.2;
+      motorSpeedB = 0.2;
+      Serial.print("Front Left Distance: ");
+      Serial.print(distance1);
+      Serial.println(" cm");
+      Serial.print("Front Right Distance: ");
+      Serial.print(distance2);
+      Serial.println(" cm");
+    } else {
+      brake();  // Stop the robot
+      //Serial.println("Front alignment complete.");
+    }
+
 
     delay(50);
   }
