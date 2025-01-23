@@ -411,7 +411,7 @@ void alignFront() {
   }
 }
 
-void alignFrontWithTwoSensors() {
+void alignFrontWithTwoSensors1() {
   const float targetDistance = 10.0;
   const float distanceTolerance = 0.05;
   const float alignmentTolerance = 0.01;
@@ -428,17 +428,6 @@ void alignFrontWithTwoSensors() {
     // Calculate average distance to the wall
     float averageDistance = (distance1 + distance2) / 2;
 
-    // Debugging output
-    Serial.print("Front Left Distance: ");
-    Serial.print(distance1);
-    Serial.println(" cm");
-    Serial.print("Front Right Distance: ");
-    Serial.print(distance2);
-    Serial.println(" cm");
-    Serial.print("Average Distance: ");
-    Serial.print(averageDistance);
-    Serial.println(" cm");
-
     // Check for alignment
     float sensorAlignmentDifference = distance1 - distance2;
 
@@ -447,17 +436,38 @@ void alignFrontWithTwoSensors() {
       motorSpeedA = 0.2;
       motorSpeedB = 0.2;
       Serial.println(sensorAlignmentDifference);
+      Serial.print("Front Left Distance: ");
+      Serial.print(distance1);
+      Serial.println(" cm");
+      Serial.print("Front Right Distance: ");
+      Serial.print(distance2);
+      Serial.println(" cm");
+      Serial.print("Average Distance: ");
+      Serial.print(averageDistance);
+      Serial.println(" cm");
       // Stop the motors and exit the alignment loop
       brake();
       Serial.println("Front wall alignment complete.");
       break;
     } else if (sensorAlignmentDifference > distanceTolerance) {
+      Serial.println(sensorAlignmentDifference);
+      Serial.print("Front Left Distance: ");
+      Serial.print(distance1);
+      Serial.println(" cm");
+      Serial.print("Front Right Distance: ");
+      Serial.print(distance2);
+      Serial.println(" cm");
+      Serial.print("Average Distance: ");
+      Serial.print(averageDistance);
+      Serial.println(" cm");
       // Left side is farther; adjust left motor
       //motorSpeedA = baseSpeed;  // Keep right motor at base speed
-      motorSpeedB = min(motorSpeedB /*+ adjustment*/, 0.2);  // Increase left motor speed
+      motorSpeedB = min(motorSpeedB + adjustment, 0.2);  // Increase left motor speed
     } else if (sensorAlignmentDifference < -distanceTolerance) {
+      Serial.println(sensorAlignmentDifference);
+
       // Right side is farther; adjust right motor
-      motorSpeedA = min(motorSpeedA /*+ adjustment*/, 0.2);  // Increase right motor speed
+      motorSpeedA = min(motorSpeedA + adjustment, 0.2);  // Increase right motor speed
       //motorSpeedB = baseSpeed;  // Keep left motor at base speed
     }
 
@@ -484,7 +494,7 @@ void alignFrontWithTwoSensors() {
       Serial.print(distance2);
       Serial.println(" cm");
     } else if (distance1 < targetDistance - distanceTolerance || distance2 < targetDistance - distanceTolerance) {
-      //} else if (averageDistance < targetDistance /*- distanceTolerance*/) {
+      //} else if (averageDistance < targetDistance - distanceTolerance) {
       reverse();  // Move backward
       motorSpeedA = 0.2;
       motorSpeedB = 0.2;
@@ -503,6 +513,85 @@ void alignFrontWithTwoSensors() {
     delay(50);
   }
 }
+
+void alignFrontWithTwoSensors() {
+  const float targetDistance = 5.0; // Final target distance in cm
+  const float distanceTolerance = 0.05; // Tolerance for distance to target
+  const float alignmentTolerance = 0.01; // Tolerance for alignment
+  const float adjustment = 0.01; // Speed for alignment adjustments
+  //const float slowSpeed = 0.1; // Slow speed for fine adjustments
+
+  while (true) {
+
+    // Calculate average distance to the wall
+    float averageDistance = (distance1 + distance2) / 2;
+
+    // Debugging output
+    Serial.print("Front Left Distance: ");
+    Serial.print(distance1);
+    Serial.println(" cm");
+    Serial.print("Front Right Distance: ");
+    Serial.print(distance2);
+    Serial.println(" cm");
+    Serial.print("Average Distance: ");
+    Serial.print(averageDistance);
+    Serial.println(" cm");
+
+    // Check for alignment
+    float sensorAlignmentDifference = distance1 - distance2;
+
+    if (abs(sensorAlignmentDifference) <= alignmentTolerance) {
+      // If aligned, check target distance
+      if (abs(averageDistance - targetDistance) <= distanceTolerance) {
+        // Target distance reached, stop and break
+        brake();
+        Serial.println("Alignment complete at target distance.");
+        break;
+      } else if (averageDistance > targetDistance) {
+        // Move forward if too far
+        motorSpeedA = 0.2;
+        motorSpeedB = 0.2;
+        forward();
+        Serial.println("Moving forward to target distance.");
+      } else if (averageDistance < targetDistance) {
+        // Move backward if too close
+        motorSpeedA = 0.2;
+        motorSpeedB = 0.2;
+        reverse();
+        Serial.println("Moving backward to target distance.");
+      }
+    } else {
+      // Adjust motors for alignment (one motor at a time)
+      if (sensorAlignmentDifference > alignmentTolerance) {
+        // Left side is farther; move only the left motor backward
+        motorSpeedA = min(motorSpeedB + adjustment, 0.25);  // Increase left motor speed
+        motorSpeedB = 0; // Stop the right motor
+        //reverseMotorA();
+        Serial.println("Adjusting alignment: Moving left motor.");
+      } else {
+        // Right side is farther; move only the right motor backward
+        motorSpeedA = 0; // Stop the left motor
+        motorSpeedB = min(motorSpeedB + adjustment, 0.25);  // Increase left motor speed
+        //reverseMotorB();
+        Serial.println("Adjusting alignment: Moving right motor.");
+      }
+    }
+
+    // Debugging output for motor speeds
+    Serial.print("Motor Speed A: ");
+    Serial.println(motorSpeedA);
+    Serial.print("Motor Speed B: ");
+    Serial.println(motorSpeedB);
+
+    // Write motor speeds to the motors
+    motorA_pwm.write(motorSpeedA);
+    motorB_pwm.write(motorSpeedB);
+
+    delay(50); // Short delay for stabilization
+  }
+}
+
+
 /*
 if (abs(sensorDifference) > alignmentTolerance) {
       // If left is farther, turn slightly right
