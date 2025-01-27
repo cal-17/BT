@@ -28,8 +28,8 @@ void setMultiplexerBus(uint8_t busCommand);
 float readDistanceCM();
 void handleI2CError(int result);
 
-volatile float distance1;
-volatile float distance2;
+volatile float distanceF1;
+volatile float distanceF2;
 volatile float distanceL;
 volatile float distanceR;
 //----------------------------------------------------------------------------------
@@ -123,11 +123,11 @@ Timer speedTimer;  // Timer to calculate motor speed every second
 void checksensors() {
   while (runningSensors) {
     setMultiplexerBus(MUX_BUS_0);
-    distance1 = readDistanceCM();
+    distanceF1 = readDistanceCM();
     delay(50);  // 500 ms delay
 
     setMultiplexerBus(MUX_BUS_1);
-    distance2 = readDistanceCM();
+    distanceF2 = readDistanceCM();
     delay(50);  // 500 ms delay
 
     setMultiplexerBus(MUX_BUS_2);
@@ -143,13 +143,13 @@ void checksensors() {
 void checksensorscheck() {
 
   Serial.print("Sensor 1 Distance: ");
-  Serial.print(distance1);
+  Serial.print(distanceF1);
   Serial.println(" cm");
 
   delay(50);  // 500 ms delay
 
   Serial.print("Sensor 2 Distance: ");
-  Serial.print(distance2);
+  Serial.print(distanceF2);
   Serial.println(" cm");
 
   delay(50);  // 500 ms delay
@@ -383,7 +383,7 @@ void alignRobot() {
 void alignFront() {
 
   // First, check the distance to the front wall
-  while (distance1 > 0.10) {  // If the front sensor is further than 5 cm, move forward
+  while (distanceF1 > 0.10) {  // If the front sensor is further than 5 cm, move forward
     forward();                // Move forward
     motorSpeedA = 0.3;
     motorSpeedB = 0.3;
@@ -394,7 +394,7 @@ void alignFront() {
   }
 
 
-  while (distance1 < 0.10) {  // If the front sensor is less than 5 cm, move backward
+  while (distanceF1 < 0.10) {  // If the front sensor is less than 5 cm, move backward
     reverse();
 
     motorSpeedA = 0.2;
@@ -426,10 +426,10 @@ void alignFrontWithTwoSensors1() {
     //float frontRightDistance = getFrontRightSensor();  // Replace with actual function to read sensor
 
     // Calculate average distance to the wall
-    float averageDistance = (distance1 + distance2) / 2;
+    float averageDistance = (distanceF1 + distanceF2) / 2;
 
     // Check for alignment
-    float sensorAlignmentDifference = distance1 - distance2;
+    float sensorAlignmentDifference = distanceF1 - distanceF2;
 
     if (abs(sensorAlignmentDifference) <= alignmentTolerance) {
       // If the difference is within the threshold, alignment is complete
@@ -437,10 +437,10 @@ void alignFrontWithTwoSensors1() {
       motorSpeedB = 0.2;
       Serial.println(sensorAlignmentDifference);
       Serial.print("Front Left Distance: ");
-      Serial.print(distance1);
+      Serial.print(distanceF1);
       Serial.println(" cm");
       Serial.print("Front Right Distance: ");
-      Serial.print(distance2);
+      Serial.print(distanceF2);
       Serial.println(" cm");
       Serial.print("Average Distance: ");
       Serial.print(averageDistance);
@@ -452,10 +452,10 @@ void alignFrontWithTwoSensors1() {
     } else if (sensorAlignmentDifference > distanceTolerance) {
       Serial.println(sensorAlignmentDifference);
       Serial.print("Front Left Distance: ");
-      Serial.print(distance1);
+      Serial.print(distanceF1);
       Serial.println(" cm");
       Serial.print("Front Right Distance: ");
-      Serial.print(distance2);
+      Serial.print(distanceF2);
       Serial.println(" cm");
       Serial.print("Average Distance: ");
       Serial.print(averageDistance);
@@ -482,27 +482,27 @@ void alignFrontWithTwoSensors1() {
     motorB_pwm.write(motorSpeedB);
 
     // Check if robot is within the target range
-    if (distance1 > targetDistance + distanceTolerance || distance2 > targetDistance + distanceTolerance) {
+    if (distanceF1 > targetDistance + distanceTolerance || distanceF2 > targetDistance + distanceTolerance) {
       //if (averageDistance > targetDistance + distanceTolerance) {
       forward();  // Move forward
       motorSpeedA = 0.2;
       motorSpeedB = 0.2;
       Serial.print("Front Left Distance: ");
-      Serial.print(distance1);
+      Serial.print(distanceF1);
       Serial.println(" cm");
       Serial.print("Front Right Distance: ");
-      Serial.print(distance2);
+      Serial.print(distanceF2);
       Serial.println(" cm");
-    } else if (distance1 < targetDistance - distanceTolerance || distance2 < targetDistance - distanceTolerance) {
+    } else if (distanceF1 < targetDistance - distanceTolerance || distanceF2 < targetDistance - distanceTolerance) {
       //} else if (averageDistance < targetDistance - distanceTolerance) {
       reverse();  // Move backward
       motorSpeedA = 0.2;
       motorSpeedB = 0.2;
       Serial.print("Front Left Distance: ");
-      Serial.print(distance1);
+      Serial.print(distanceF1);
       Serial.println(" cm");
       Serial.print("Front Right Distance: ");
-      Serial.print(distance2);
+      Serial.print(distanceF2);
       Serial.println(" cm");
     } else {
       brake();  // Stop the robot
@@ -515,30 +515,30 @@ void alignFrontWithTwoSensors1() {
 }
 
 void alignFrontWithTwoSensors() {
-  const float targetDistance = 5.0; // Final target distance in cm
-  const float distanceTolerance = 0.05; // Tolerance for distance to target
-  const float alignmentTolerance = 0.01; // Tolerance for alignment
-  const float adjustment = 0.01; // Speed for alignment adjustments
+  const float targetDistance = 5.0;       // Final target distance in cm
+  const float distanceTolerance = 0.05;   // Tolerance for distance to target
+  const float alignmentTolerance = 0.01;  // Tolerance for alignment
+  const float adjustment = 0.01;          // Speed for alignment adjustments
   //const float slowSpeed = 0.1; // Slow speed for fine adjustments
 
   while (true) {
 
     // Calculate average distance to the wall
-    float averageDistance = (distance1 + distance2) / 2;
+    float averageDistance = (distanceF1 + distanceF2) / 2;
 
     // Debugging output
     Serial.print("Front Left Distance: ");
-    Serial.print(distance1);
+    Serial.print(distanceF1);
     Serial.println(" cm");
     Serial.print("Front Right Distance: ");
-    Serial.print(distance2);
+    Serial.print(distanceF2);
     Serial.println(" cm");
     Serial.print("Average Distance: ");
     Serial.print(averageDistance);
     Serial.println(" cm");
 
     // Check for alignment
-    float sensorAlignmentDifference = distance1 - distance2;
+    float sensorAlignmentDifference = distanceF1 - distanceF2;
 
     if (abs(sensorAlignmentDifference) <= alignmentTolerance) {
       // If aligned, check target distance
@@ -565,12 +565,12 @@ void alignFrontWithTwoSensors() {
       if (sensorAlignmentDifference > alignmentTolerance) {
         // Left side is farther; move only the left motor backward
         motorSpeedA = min(motorSpeedB + adjustment, 0.25);  // Increase left motor speed
-        motorSpeedB = 0; // Stop the right motor
+        motorSpeedB = 0;                                    // Stop the right motor
         //reverseMotorA();
         Serial.println("Adjusting alignment: Moving left motor.");
       } else {
         // Right side is farther; move only the right motor backward
-        motorSpeedA = 0; // Stop the left motor
+        motorSpeedA = 0;                                    // Stop the left motor
         motorSpeedB = min(motorSpeedB + adjustment, 0.25);  // Increase left motor speed
         //reverseMotorB();
         Serial.println("Adjusting alignment: Moving right motor.");
@@ -587,7 +587,7 @@ void alignFrontWithTwoSensors() {
     motorA_pwm.write(motorSpeedA);
     motorB_pwm.write(motorSpeedB);
 
-    delay(50); // Short delay for stabilization
+    delay(50);  // Short delay for stabilization
   }
 }
 
@@ -678,8 +678,8 @@ void maintainDistancefromRightWall() {   //to test
 
   while (true) {
     // Read sensor distances
-    float frontDistance = distance1;  // Replace with actual front-right sensor reading
-    float rearDistance = distance2;   // Replace with actual rear-right sensor reading
+    float frontDistance = distanceF1;  // Replace with actual front-right sensor reading
+    float rearDistance = distanceF2;   // Replace with actual rear-right sensor reading
 
     Serial.print("Front Distance: ");
     Serial.println(frontDistance);
@@ -1262,12 +1262,12 @@ void checknmovewallahead() {
     checksensors();  // Check the sensor distances
 
     // Read distance from Sensor 1
-    float distance1 = readDistanceCM();
+    float distanceF1 = readDistanceCM();
     Serial.print("Sensor 1 Distance: ");
-    Serial.print(distance1);
+    Serial.print(distanceF1);
     Serial.println(" cm");
 
-    if (distance1 < minDistanceThreshold) {  // Check if the distance from Sensor 1 falls below the threshold
+    if (distanceF1 < minDistanceThreshold) {  // Check if the distance from Sensor 1 falls below the threshold
 
       brake();
       Serial.println("Wall in front. Stopping robot.");
@@ -1290,12 +1290,12 @@ void checknmovewallleft() {
   while (true) {
     checksensors();  // Check sensor
 
-    float distance1 = readDistanceCM();
+    float distanceF1 = readDistanceCM();
     Serial.print("Sensor 1 Distance: ");
-    Serial.print(distance1);
+    Serial.print(distanceF1);
     Serial.println(" cm");
 
-    if (distance1 < minDistanceThreshold) {
+    if (distanceF1 < minDistanceThreshold) {
       brake();
       Serial.println("Wall in front, stopping robot");
 
@@ -1360,12 +1360,12 @@ void checknmove1() {
 
     } else {
 
-      float distance1 = readDistanceCM();  // Check the front sensor
+      float distanceF1 = readDistanceCM();  // Check the front sensor
       Serial.print("Sensor 1 Distance: ");
-      Serial.print(distance1);
+      Serial.print(distanceF1);
       Serial.println(" cm");
 
-      if (distance1 < minDistanceThresholdFront) {  // If a wall is detected in front, stop and turn 180 degrees
+      if (distanceF1 < minDistanceThresholdFront) {  // If a wall is detected in front, stop and turn 180 degrees
 
         brake();
 
@@ -1397,14 +1397,14 @@ void checknmove() {
     //setMultiplexerBus(MUX_BUS_2);
     //float distanceL = readDistanceCM();  // Left sensor
     //setMultiplexerBus(MUX_BUS_0);
-    //float distance1 = readDistanceCM();  // Front sensor
+    //float distanceF1 = readDistanceCM();  // Front sensor
 
     Serial.print("Left Sensor Distance: ");
     Serial.print(distanceL);
     Serial.println(" cm");
 
     Serial.print("Front Sensor Distance: ");
-    Serial.print(distance1);
+    Serial.print(distanceF1);
     Serial.println(" cm");
 
     if (distanceL > minDistanceThresholdLeft) {
@@ -1430,7 +1430,7 @@ void checknmove() {
       delay(100);
 
     } else {
-      if (distance1 < minDistanceThresholdFront) {
+      if (distanceF1 < minDistanceThresholdFront) {
         brake();
         checksensors();
 
@@ -1449,7 +1449,7 @@ void checknmove() {
           moveforward();
         } else {
 
-          if (distance1 < minDistanceThresholdFront) {
+          if (distanceF1 < minDistanceThresholdFront) {
 
             brake();
 
@@ -1514,6 +1514,70 @@ void checkSensorsAndUpdateMaze() {
   float Threshold = 50.0;     // Adjust as per environment (in cm)
   int maxDistanceCells = 10;  // Maximum grid cells to mark free
 
+  // Directions for the robot's facing direction
+  int forwardDx = dx(robotDir);  // X direction for facing forward
+  int forwardDy = dy(robotDir);  // Y direction for facing forward
+  int leftDx = -dy(robotDir);    // X direction for left of facing
+  int leftDy = dx(robotDir);     // Y direction for left of facing
+  int rightDx = dy(robotDir);    // X direction for right of facing
+  int rightDy = -dx(robotDir);   // Y direction for right of facing
+
+  // Compute sensor positions relative to the robot
+  int F1_startX = robotX + leftDx + forwardDx;  // F1 is one grid left and forward
+  int F1_startY = robotY + leftDy + forwardDy;
+  int F2_startX = robotX + rightDx + forwardDx; // F2 is one grid right and forward
+  int F2_startY = robotY + rightDy + forwardDy;
+  int L_startX = robotX + forwardDx + rightDx; // L is one grid forward and right
+  int L_startY = robotY + forwardDy + rightDy;
+  int R_startX = robotX - forwardDx + rightDx; // R is one grid backward and right
+  int R_startY = robotY - forwardDy + rightDy;
+
+  // Process the front-left sensor (F1)
+  if (distanceF1 < Threshold) {
+    Serial.print(distanceF1);
+    Serial.println("Wall detected by F1.");
+    processSensorData(distanceF1, F1_startX, F1_startY, forwardDx, forwardDy, true);
+  } else {
+    Serial.println("No wall detected by F1.");
+    processSensorData(distanceF1, F1_startX, F1_startY, forwardDx, forwardDy, false);
+  }
+
+  // Process the front-right sensor (F2)
+  if (distanceF2 < Threshold) {
+    Serial.print(distanceF2);
+    Serial.println("Wall detected by F2.");
+    processSensorData(distanceF2, F2_startX, F2_startY, forwardDx, forwardDy, true);
+  } else {
+    Serial.println("No wall detected by F2.");
+    processSensorData(distanceF2, F2_startX, F2_startY, forwardDx, forwardDy, false);
+  }
+
+  // Process the left sensor (L)
+  if (distanceL < Threshold) {
+    Serial.print(distanceL);
+    Serial.println("Wall detected by L.");
+    processSensorData(distanceL, L_startX, L_startY, leftDx, leftDy, true);
+  } else {
+    Serial.println("No wall detected by L.");
+    processSensorData(distanceL, L_startX, L_startY, leftDx, leftDy, false);
+  }
+
+  // Process the right sensor (R)
+  if (distanceR < Threshold) {
+    Serial.print(distanceR);
+    Serial.println("Wall detected by R.");
+    processSensorData(distanceR, R_startX, R_startY, rightDx, rightDy, true);
+  } else {
+    Serial.println("No wall detected by R.");
+    processSensorData(distanceR, R_startX, R_startY, rightDx, rightDy, false);
+  }
+}
+
+void checkSensorsAndUpdateMazeT() {
+  // Sensor threshold for detecting walls
+  float Threshold = 50.0;     // Adjust as per environment (in cm)
+  int maxDistanceCells = 10;  // Maximum grid cells to mark free
+
   // Directions for sensors
   int frontDx = dx(robotDir);   // Directional change for front sensor (X)
   int frontDy = dy(robotDir);   // Directional change for front sensor (Y)
@@ -1523,13 +1587,22 @@ void checkSensorsAndUpdateMaze() {
   int rightDy = -dx(robotDir);  // Directional change for right sensor (Y)
 
   // Process the front sensor
-  if (distance1 < Threshold) {
-    Serial.print(distance1);
+  if (distanceF1 < Threshold) {
+    Serial.print(distanceF1);
     Serial.println("Wall detected ahead.");
-    processSensorData(distance1, robotX, robotY, frontDx, frontDy, true);
+    processSensorData(distanceF1, robotX, robotY, frontDx, frontDy, true);
   } else {
     Serial.println("No wall detected ahead.");
-    processSensorData(distance1, robotX, robotY, frontDx, frontDy, false);
+    processSensorData(distanceF1, robotX, robotY, frontDx, frontDy, false);
+  }
+
+  if (distanceF2 < Threshold) {
+    Serial.print(distanceF2);
+    Serial.println("Wall detected ahead.");
+    processSensorData(distanceF1, robotX, robotY, frontDx, frontDy, true);
+  } else {
+    Serial.println("No wall detected ahead.");
+    processSensorData(distanceF1, robotX, robotY, frontDx, frontDy, false);
   }
 
   // Process the left sensor
@@ -1557,7 +1630,7 @@ void checkSensorsAndUpdateMaze() {
 
   float minDistanceThresholdLeft = 15.0;  // in cm
 
-  if (distance1 < wallThreshold) {
+  if (distanceF1 < wallThreshold) {
     Serial.println("Wall detected ahead.");
     // Mark the front grid as a wall (e.g., "1")
     markAsWall(robotX + dx(robotDir), robotY + dy(robotDir));
@@ -1600,7 +1673,7 @@ void checkSensorsAndUpdateMaze() {
     int rightDy = -dx(robotDir);      // Directional change for right sensor (Y)
 
     // Process front sensor
-    processSensorData(distance1, robotX, robotY, frontDx, frontDy);
+    processSensorData(distanceF1, robotX, robotY, frontDx, frontDy);
 
     // Process left sensor
     processSensorData(distanceL, robotX, robotY, leftDx, leftDy);
@@ -1615,12 +1688,12 @@ void checkSensorsAndUpdateMaze() {
     int maxDistanceCells = 10;   // Maximum grid cells to mark free
 
     // Process the front sensor
-    if (distance1 < wallThreshold) {
+    if (distanceF1 < wallThreshold) {
         Serial.println("Wall detected ahead.");
-        processSensorData(robotX, robotY, robotDir, distance1, true);
+        processSensorData(robotX, robotY, robotDir, distanceF1, true);
     } else {
         Serial.println("No wall detected ahead.");
-        processSensorData(robotX, robotY, robotDir, distance1, false);
+        processSensorData(robotX, robotY, robotDir, distanceF1, false);
     }
 
     // Process the left sensor (relative to the center)
