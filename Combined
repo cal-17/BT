@@ -1,4 +1,13 @@
 #include <mbed.h>
+#include <ArduinoBLE.h>
+
+//Bluetooth--------------------------------------------------------------------------
+BLEService uartService("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");  // Nordic UART Service (NUS)
+BLECharacteristic txCharacteristic("6E400003-B5A3-F393-E0A9-E50E24DCCA9E", BLERead | BLENotify, 20);
+BLECharacteristic rxCharacteristic("6E400002-B5A3-F393-E0A9-E50E24DCCA9E", BLEWrite, 20);
+//----------------------------------------------------------------------------------
+
+
 using namespace rtos;
 using namespace mbed;
 
@@ -299,6 +308,51 @@ void displayMazeMap() {
   Serial.println();  // Add an extra newline for readability
 }
 
+/*void displayMazeMapOverBLE() {
+  String mazeStr = "";
+
+  // Convert the maze map into a string to send over BLE
+  for (int y = 0; y < mazeHeight; y++) {
+    for (int x = 0; x < mazeWidth; x++) {
+      if (mazeMap[y][x] == 1) {
+        mazeStr += " W ";  // Wall
+      } else if (mazeMap[y][x] == -1) {
+        mazeStr += " # ";  // Unknown
+      } else if (mazeMap[y][x] == 0) {
+        mazeStr += " . ";  // Empty space
+      } else if (mazeMap[y][x] == 3) {
+        mazeStr += " R ";  // Robot body
+      } else if (mazeMap[y][x] == 2) {
+        // Represent the robot's center with directional arrows
+        if (robotDir == 0) {
+          mazeStr += " ↑ ";  // Facing Up
+        } else if (robotDir == 1) {
+          mazeStr += " → ";  // Facing Right
+        } else if (robotDir == 2) {
+          mazeStr += " ↓ ";  // Facing Down
+        } else if (robotDir == 3) {
+          mazeStr += " ← ";  // Facing Left
+        }
+      }
+    }
+    mazeStr += "\n";  // New line for each row
+  }
+
+  // Convert String to const char* and send it over BLE in chunks (max 20 bytes per packet)
+  const char* mazeData = mazeStr.c_str();  // Convert String to const char*
+  int length = strlen(mazeData);  // Get the length of the C-string
+
+  for (int i = 0; i < length; i += 20) {
+    String chunk = String(mazeData).substring(i, i + 20);  // Get a chunk of the maze data
+    txCharacteristic.writeValue(chunk.c_str());  // Send the chunk via BLE
+    delay(100);  // Small delay to ensure data is transmitted correctly
+  }
+
+  Serial.println("Maze sent over BLE!");
+}*/
+
+
+
 void updateMazeMap() {
   // Mark all the cells occupied by the robot as empty (0)
   //for (int i = 0; i < robotHeight; i++) {
@@ -554,6 +608,27 @@ void encoderISR_B() {
 }
 
 void setup() {
+
+  Serial.begin(115200);
+  while (!Serial)
+    ;
+
+  if (!BLE.begin()) {
+    Serial.println("Failed to initialize BLE!");
+    while (1)
+      ;
+  }
+
+  BLE.setLocalName("BT");
+  BLE.setAdvertisedService(uartService);
+
+  uartService.addCharacteristic(txCharacteristic);
+  uartService.addCharacteristic(rxCharacteristic);
+  BLE.addService(uartService);
+
+  BLE.advertise();
+  Serial.println("BLE UART Ready. Open Bluefruit Connect App.");
+
   // Initialize Serial communication at 9600 baud rate
   Serial.begin(9600);
   Serial.println("Serial communication started.");
@@ -848,184 +923,204 @@ void alignFrontWithTwoSensors2() {
 }
 
 void alignFrontWithTwoSensors3() {
-    const float initialTargetDistance = 6.0;  // Move to 6 cm first
-    const float finalTargetDistance = 5.5;    // Then fine-tune to 5 cm
-    const float distanceTolerance = 0.5;      // Tolerance for reaching 6 cm
-    const float alignmentTolerance = 0.1;     // Tolerance for final alignment
-    const float moveSpeed = 0.2;              // Speed for moving to 6 cm
-    const float fineAdjustSpeed = 0.1;        // Slow speed for final alignment
-    bool reachedInitialTarget = false;        // Flag for transitioning to fine-tuning
+  const float initialTargetDistance = 6.0;  // Move to 6 cm first
+  const float finalTargetDistance = 5.5;    // Then fine-tune to 5 cm
+  const float distanceTolerance = 0.5;      // Tolerance for reaching 6 cm
+  const float alignmentTolerance = 0.1;     // Tolerance for final alignment
+  const float moveSpeed = 0.2;              // Speed for moving to 6 cm
+  const float fineAdjustSpeed = 0.1;        // Slow speed for final alignment
+  bool reachedInitialTarget = false;        // Flag for transitioning to fine-tuning
 
-    while (true) {
-        float averageDistance = (distance_F1 + distance_F2) / 2.0;
-        float sensorAlignmentDifference = distance_F1 - distance_F2;
+  while (true) {
+    float averageDistance = (distance_F1 + distance_F2) / 2.0;
+    float sensorAlignmentDifference = distance_F1 - distance_F2;
 
-        // Debugging output
-        Serial.print("Front Left Distance: "); Serial.println(distance_F1);
-        Serial.print("Front Right Distance: "); Serial.println(distance_F2);
-        Serial.print("Average Distance: "); Serial.println(averageDistance);
-        
-        // Step 1: Move toward an average distance of 6 cm
-        if (!reachedInitialTarget) {
-            if (abs(averageDistance - initialTargetDistance) > distanceTolerance) {
-                if (averageDistance > initialTargetDistance) {
-                    Serial.println("Moving forward to 6 cm...");
-                    motorSpeedA = moveSpeed;
-                    motorSpeedB = moveSpeed;
-                    forward();
-                } else {
-                    Serial.println("Moving backward to 6 cm...");
-                    motorSpeedA = moveSpeed;
-                    motorSpeedB = moveSpeed;
-                    reverse();
-                }
-            } else {
-                Serial.println("Reached 6 cm. Switching to fine-tuning mode.");
-                reachedInitialTarget = true;
-                brake();
-                delay(500); // Small pause before fine-tuning
-            }
-        } 
-        // Step 2: Fine-tune each sensor to exactly 5 cm by moving forward while swiveling
-        else {
-            Serial.println("Fine-tuning alignment...");
-            if (distance_F1 > finalTargetDistance || distance_F2 > finalTargetDistance) {
-                if (distance_F1 > distance_F2) {  
-                    // Left sensor is farther → Move left motor forward slightly
-                    Serial.println("Adjusting: Moving Left Motor Forward");
-                    motorSpeedA = fineAdjustSpeed;
-                    motorSpeedB = 0;
-                } else if (distance_F2 > distance_F1) {  
-                    // Right sensor is farther → Move right motor forward slightly
-                    Serial.println("Adjusting: Moving Right Motor Forward");
-                    motorSpeedA = 0;
-                    motorSpeedB = fineAdjustSpeed;
-                } else {
-                    // Both sensors are close to target → Move both forward slightly
-                    Serial.println("Final Move: Bringing both sensors to 5 cm...");
-                    motorSpeedA = fineAdjustSpeed;
-                    motorSpeedB = fineAdjustSpeed;
-                    forward();
-                }
-            } else {
-                // Stop when fully aligned
-                Serial.println("Fully aligned at 5 cm! Stopping.");
-                motorSpeedA = 0;
-                motorSpeedB = 0;
-                brake();
-                break;
-            }
+    // Debugging output
+    Serial.print("Front Left Distance: ");
+    Serial.println(distance_F1);
+    Serial.print("Front Right Distance: ");
+    Serial.println(distance_F2);
+    Serial.print("Average Distance: ");
+    Serial.println(averageDistance);
+
+    // Step 1: Move toward an average distance of 6 cm
+    if (!reachedInitialTarget) {
+      if (abs(averageDistance - initialTargetDistance) > distanceTolerance) {
+        if (averageDistance > initialTargetDistance) {
+          Serial.println("Moving forward to 6 cm...");
+          motorSpeedA = moveSpeed;
+          motorSpeedB = moveSpeed;
+          forward();
+        } else {
+          Serial.println("Moving backward to 6 cm...");
+          motorSpeedA = moveSpeed;
+          motorSpeedB = moveSpeed;
+          reverse();
         }
-
-        // Apply motor speeds
-        motorA_pwm.write(motorSpeedA);
-        motorB_pwm.write(motorSpeedB);
-
-        delay(100); // Short delay for stability
+      } else {
+        Serial.println("Reached 6 cm. Switching to fine-tuning mode.");
+        reachedInitialTarget = true;
+        brake();
+        delay(500);  // Small pause before fine-tuning
+      }
     }
+    // Step 2: Fine-tune each sensor to exactly 5 cm by moving forward while swiveling
+    else {
+      Serial.println("Fine-tuning alignment...");
+      if (distance_F1 > finalTargetDistance || distance_F2 > finalTargetDistance) {
+        if (distance_F1 > distance_F2) {
+          // Left sensor is farther → Move left motor forward slightly
+          Serial.println("Adjusting: Moving Left Motor Forward");
+          motorSpeedA = fineAdjustSpeed;
+          motorSpeedB = 0;
+        } else if (distance_F2 > distance_F1) {
+          // Right sensor is farther → Move right motor forward slightly
+          Serial.println("Adjusting: Moving Right Motor Forward");
+          motorSpeedA = 0;
+          motorSpeedB = fineAdjustSpeed;
+        } else {
+          // Both sensors are close to target → Move both forward slightly
+          Serial.println("Final Move: Bringing both sensors to 5 cm...");
+          motorSpeedA = fineAdjustSpeed;
+          motorSpeedB = fineAdjustSpeed;
+          forward();
+        }
+      } else {
+        // Stop when fully aligned
+        Serial.println("Fully aligned at 5 cm! Stopping.");
+        motorSpeedA = 0;
+        motorSpeedB = 0;
+        brake();
+        break;
+      }
+    }
+
+    // Apply motor speeds
+    motorA_pwm.write(motorSpeedA);
+    motorB_pwm.write(motorSpeedB);
+
+    delay(100);  // Short delay for stability
+  }
 }
 
 void alignFrontWithTwoSensors() {
-    const float initialTargetDistance = 6.0;  // Move to 6 cm first
-    const float finalTargetDistance = 5.0;    // Then fine-tune to 5 cm
-    const float distanceTolerance = 0.5;      // Tolerance for reaching 6 cm
-    const float alignmentTolerance = 0.3;     // Tolerance for final alignment
-    const float moveSpeed = 0.2;              // Speed for moving to 6 cm
-    const float fineAdjustSpeed = 0.1;        // Slow speed for final alignment
-    const float reverseAdjustSpeed = 0.1;     // Speed for moving backward if too close
-    bool reachedInitialTarget = false;        // Flag for transitioning to fine-tuning
+  const float initialTargetDistance = 15;  // Move to  cm first
+  const float finalTargetDistance = 10;    // Then fine-tune to 5 cm
+  const float distanceTolerance = 0.2;     // Tolerance for reaching 6 cm
+  const float alignmentTolerance = 0.1;    // Tolerance for final alignment
+  const float moveSpeed = 0.2;             // Speed for moving to 6 cm
+  const float fineAdjustSpeed = 0.2;       // Slow speed for final alignment
+  const float reverseAdjustSpeed = 0.2;    // Speed for moving backward if too close
+  bool reachedInitialTarget = false;       // Flag for transitioning to fine-tuning
 
-    while (true) {
-        float averageDistance = (distance_F1 + distance_F2) / 2.0;
-        float sensorAlignmentDifference = distance_F1 - distance_F2;
+  while (true) {
+    float averageDistance = (distance_F1 + distance_F2) / 2.0;
+    float sensorAlignmentDifference = distance_F1 - distance_F2;
 
-        // Debugging output
-        Serial.print("Front Left Distance: "); Serial.println(distance_F1);
-        Serial.print("Front Right Distance: "); Serial.println(distance_F2);
-        Serial.print("Average Distance: "); Serial.println(averageDistance);
-        
-        // Step 1: Move toward an average distance of 6 cm
-        if (!reachedInitialTarget) {
-            if (abs(averageDistance - initialTargetDistance) > distanceTolerance) {
-                if (averageDistance > initialTargetDistance) {
-                    Serial.println("Moving forward to 6 cm...");
-                    motorSpeedA = moveSpeed;
-                    motorSpeedB = moveSpeed;
-                    forward();
-                } else {
-                    Serial.println("Moving backward to 6 cm...");
-                    motorSpeedA = moveSpeed;
-                    motorSpeedB = moveSpeed;
-                    reverse();
-                }
-            } else {
-                Serial.println("Reached 6 cm. Switching to fine-tuning mode.");
-                reachedInitialTarget = true;
-                brake();
-                delay(500); // Small pause before fine-tuning
-            }
-        } 
-        // Step 2: Fine-tune each sensor to exactly 5 cm by moving forward while swiveling
-        else {
-            Serial.println("Fine-tuning alignment...");
-            motorSpeedA = 0;
-            motorSpeedB = 0;
-            
-            if (distance_F1 > finalTargetDistance || distance_F2 > finalTargetDistance) {
-                if (distance_F1 > distance_F2) {  
-                    // Left sensor is farther → Move left motor forward slightly
-                    Serial.println("Adjusting: Moving Left Motor Forward");
-                    motorSpeedA = fineAdjustSpeed;
-                    motorSpeedB = 0;
-                    forward();
-                } else if (distance_F2 > distance_F1) {  
-                    // Right sensor is farther → Move right motor forward slightly
-                    Serial.println("Adjusting: Moving Right Motor Forward");
-                    motorSpeedA = 0;
-                    motorSpeedB = fineAdjustSpeed;
-                    forward();
-                } else {
-                    // Both sensors are close to target → Move both forward slightly
-                    Serial.println("Final Move: Bringing both sensors to 5 cm...");
-                    motorSpeedA = fineAdjustSpeed;
-                    motorSpeedB = fineAdjustSpeed;
-                    forward();
-                }
-            } else if (distance_F1 < finalTargetDistance || distance_F2 < finalTargetDistance) {
-                if (distance_F1 < distance_F2) {  
-                    // Left sensor is too close → Move left motor backward slightly
-                    Serial.println("Adjusting: Moving Left Motor Backward");
-                    motorSpeedA = reverseAdjustSpeed;
-                    motorSpeedB = 0;
-                    reverse();
-                } else if (distance_F2 < distance_F1) {  
-                    // Right sensor is too close → Move right motor backward slightly
-                    Serial.println("Adjusting: Moving Right Motor Backward");
-                    motorSpeedA = 0;
-                    motorSpeedB = reverseAdjustSpeed;
-                    reverse();
-                }
-            } else {
-                // Stop when fully aligned
-                Serial.println("Fully aligned at 5 cm! Stopping.");
-                motorSpeedA = 0;
-                motorSpeedB = 0;
-                brake();
-                break;
-            }
+    // Debugging output
+    Serial.print("Front Left Distance: ");
+    Serial.print(distance_F1);
+    Serial.print(" cm | Front Right Distance: ");
+    Serial.print(distance_F2);
+    Serial.print(" cm | Average Distance: ");
+    Serial.print(averageDistance);
+    Serial.print(" cm | Alignment Diff: ");
+    Serial.println(abs(sensorAlignmentDifference));
+
+    // Step 1: Move toward an average distance of 6 cm
+    if (!reachedInitialTarget) {
+      if (abs(averageDistance - initialTargetDistance) > distanceTolerance) {
+        if (averageDistance > initialTargetDistance) {
+          Serial.println("Moving forward to 6 cm...");
+          motorSpeedA = moveSpeed;
+          motorSpeedB = moveSpeed;
+          forward();
+        } else {
+          Serial.println("Moving backward to 6 cm...");
+          motorSpeedA = moveSpeed;
+          motorSpeedB = moveSpeed;
+          reverse();
         }
-
-        // Apply motor speeds
-        motorA_pwm.write(motorSpeedA);
-        motorB_pwm.write(motorSpeedB);
-
-        delay(100); // Short delay for stability
+      } else {
+        Serial.println("Reached 6 cm. Switching to fine-tuning mode.");
+        reachedInitialTarget = true;
+        brake();
+        delay(500);  // Small pause before fine-tuning
+      }
     }
+    // Step 2: Fine-tune each sensor to exactly 5 cm by moving forward while swiveling
+    else {
+      Serial.println("Fine-tuning alignment...");
+      motorSpeedA = 0;
+      motorSpeedB = 0;
+
+      if (distance_F1 > finalTargetDistance || distance_F2 > finalTargetDistance) {
+        if (distance_F1 > distance_F2) {
+          // Left sensor is farther → Move left motor forward slightly
+          Serial.println("Adjusting: Moving Left Motor Forward");
+          motorSpeedA = fineAdjustSpeed;
+          motorSpeedB = 0;
+          forward();
+        } else if (distance_F2 > distance_F1) {
+          // Right sensor is farther → Move right motor forward slightly
+          Serial.println("Adjusting: Moving Right Motor Forward");
+          motorSpeedA = 0;
+          motorSpeedB = fineAdjustSpeed;
+          forward();
+        } else {
+          // Both sensors are close to target → Move both forward slightly
+          Serial.println("Final Move: Bringing both sensors to 5 cm...");
+          motorSpeedA = fineAdjustSpeed;
+          motorSpeedB = fineAdjustSpeed;
+          forward();
+        }
+      } else if (distance_F1 < finalTargetDistance || distance_F2 < finalTargetDistance) {
+        if (distance_F1 < distance_F2) {
+          // Left sensor is too close → Move left motor backward slightly
+          Serial.println("Adjusting: Moving Left Motor Backward");
+          motorSpeedA = reverseAdjustSpeed;
+          motorSpeedB = 0;
+          reverse();
+        } else if (distance_F2 < distance_F1) {
+          // Right sensor is too close → Move right motor backward slightly
+          Serial.println("Adjusting: Moving Right Motor Backward");
+          motorSpeedA = 0;
+          motorSpeedB = reverseAdjustSpeed;
+          reverse();
+        }
+      } else {
+        // Stop when fully aligned
+        Serial.println("Fully aligned at 5 cm! Stopping.");
+        motorSpeedA = 0;
+        motorSpeedB = 0;
+        brake();
+        break;
+      }
+    }
+
+    // Debugging output for motor speeds
+    Serial.print("Motor Speed A: ");
+    Serial.print(motorSpeedA);
+    Serial.print(" | Motor Speed B: ");
+    Serial.println(motorSpeedB);
+
+    // Apply motor speeds
+    motorA_pwm.write(motorSpeedA);
+    motorB_pwm.write(motorSpeedB);
+
+    delay(100);  // Short delay for stability
+
+    // Debugging output
+    Serial.print("Front Left Distance: ");
+    Serial.print(distance_F1);
+    Serial.print(" cm | Front Right Distance: ");
+    Serial.print(distance_F2);
+    Serial.print(" cm | Average Distance: ");
+    Serial.print(averageDistance);
+    Serial.print(" cm | Alignment Diff: ");
+    Serial.println(abs(sensorAlignmentDifference));
+  }
 }
-
-
-
-
 
 // Align function
 void alignFrontWithTwoSensorsT() {
@@ -1146,47 +1241,110 @@ void maintainDistancefromRightWall1() {
 }
 
 
+void maintainDistancefromRightWall2() {  //to test
+  const float targetDistance = 10.0;     // Desired distance from the wall in cm
+  const float distanceTolerance = 0.5;   // Tolerance for maintaining distance (in cm)
+  const float alignmentTolerance = 0.2;  // Tolerance for alignment (in cm)
+  const float adjustment = 0.05;         // Adjustment increment for motors
+  const float baseSpeed = 0.2;           // Base motor speed
+
+  while (true) {
+
+    Serial.print("Front Distance: ");
+    Serial.println(distance_F1);
+    Serial.print("Rear Distance: ");
+    Serial.println(distance_F2);
+
+    // --- Stage 1: Ensure Both Sensors Are Within Target Distance ---
+    if (distance_F1 > targetDistance + distanceTolerance && distance_F2 < targetDistance + distanceTolerance) {
+      // front further than rear
+      motorSpeedA = baseSpeed;
+      motorSpeedB = min(baseSpeed + adjustment, 1.0);
+      Serial.println("Moving Closer to Wall");
+    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 > targetDistance - distanceTolerance) {
+      // Both sensors are too close to the wall -> Move farther
+      motorSpeedA = min(baseSpeed + adjustment, 1.0);
+      motorSpeedB = baseSpeed;
+      Serial.println("Moving Away from Wall");
+    } else if (distance_F1 > targetDistance + distanceTolerance && distance_F2 > targetDistance + distanceTolerance) {
+      // Both sensors are too far from the wall -> Move closer
+      motorSpeedA = baseSpeed;
+      motorSpeedB = min(baseSpeed + adjustment, 1.0);
+      Serial.println("Moving Closer to Wall");
+    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 < targetDistance - distanceTolerance) {
+      // Both sensors are too close to the wall -> Move farther
+      motorSpeedA = min(baseSpeed + adjustment, 1.0);
+      motorSpeedB = baseSpeed;
+      Serial.println("Moving Away from Wall");
+    }
+
+    // Debugging output for motor speeds
+    Serial.print("Motor Speed A: ");
+    Serial.print(motorSpeedA);
+    Serial.print(" | Motor Speed B: ");
+    Serial.println(motorSpeedB);
+
+    // Write motor speeds to motors
+    motorA_pwm.write(motorSpeedA);
+    motorB_pwm.write(motorSpeedB);
+
+    delay(50);
+  }
+}
+
 void maintainDistancefromRightWall() {   //to test
   const float targetDistance = 10.0;     // Desired distance from the wall in cm
   const float distanceTolerance = 0.5;   // Tolerance for maintaining distance (in cm)
   const float alignmentTolerance = 0.2;  // Tolerance for alignment (in cm)
-  const float adjustment = 0.2;          // Adjustment increment for motors
-  const float baseSpeed = 0.0;           // Base motor speed
+  const float adjustment = 0.05;         // Adjustment increment for motors
+  const float baseSpeed = 0.2;           // Base motor speed
 
   while (true) {
-    // Read sensor distances
-    float frontDistance = distance_F1;  // Replace with actual front-right sensor reading
-    float rearDistance = distance_F2;   // Replace with actual rear-right sensor reading
-
     Serial.print("Front Distance: ");
-    Serial.println(frontDistance);
+    Serial.println(distance_F1);
     Serial.print("Rear Distance: ");
-    Serial.println(rearDistance);
+    Serial.println(distance_F2);
 
     // --- Stage 1: Ensure Both Sensors Are Within Target Distance ---
-    if (frontDistance > targetDistance + distanceTolerance && rearDistance < targetDistance + distanceTolerance) {
+    if (distance_F1 > targetDistance + distanceTolerance && distance_F2 > targetDistance + distanceTolerance) {
       // Both sensors are too far from the wall -> Move closer
       motorSpeedA = baseSpeed;
       motorSpeedB = min(baseSpeed + adjustment, 1.0);
       Serial.println("Moving Closer to Wall");
-    } else if (frontDistance < targetDistance - distanceTolerance && rearDistance > targetDistance - distanceTolerance) {
+    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 < targetDistance - distanceTolerance) {
       // Both sensors are too close to the wall -> Move farther
       motorSpeedA = min(baseSpeed + adjustment, 1.0);
       motorSpeedB = baseSpeed;
       Serial.println("Moving Away from Wall");
-    } else if (frontDistance > targetDistance + distanceTolerance && rearDistance > targetDistance + distanceTolerance) {
-      // Both sensors are too far from the wall -> Move closer
-      motorSpeedA = baseSpeed;
-      motorSpeedB = min(baseSpeed + adjustment, 1.0);
-      Serial.println("Moving Closer to Wall");
-    } else if (frontDistance < targetDistance - distanceTolerance && rearDistance < targetDistance - distanceTolerance) {
-      // Both sensors are too close to the wall -> Move farther
-      motorSpeedA = min(baseSpeed + adjustment, 1.0);
-      motorSpeedB = baseSpeed;
-      Serial.println("Moving Away from Wall");
-    } else {
+    } else if (distance_F1 > targetDistance + distanceTolerance && distance_F2 < targetDistance - distanceTolerance) {
+      // Front sensor is too far, rear is too close -> Rotate clockwise
+      motorSpeedA = baseSpeed + adjustment;
+      motorSpeedB = baseSpeed - adjustment;
+      Serial.println("Rotating Clockwise to Align");
+    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 > targetDistance + distanceTolerance) {
+      // Front sensor is too close, rear is too far -> Rotate counterclockwise
+      motorSpeedA = baseSpeed - adjustment;
+      motorSpeedB = baseSpeed + adjustment;
+      Serial.println("Rotating Counterclockwise to Align");
+    }
+
+    // Debugging output for motor speeds
+    Serial.print("Motor Speed A: ");
+    Serial.print(motorSpeedA);
+    Serial.print(" | Motor Speed B: ");
+    Serial.println(motorSpeedB);
+
+    // Write motor speeds to motors
+    motorA_pwm.write(motorSpeedA);
+    motorB_pwm.write(motorSpeedB);
+
+    delay(50);
+  }
+}
+
+/*else {
       // --- Stage 2: Align the Robot ---
-      float alignmentDifference = rearDistance - frontDistance;
+      float alignmentDifference = distance_F2 - distance_F1;
 
       if (abs(alignmentDifference) > alignmentTolerance) {
         if (alignmentDifference > alignmentTolerance) {
@@ -1206,22 +1364,7 @@ void maintainDistancefromRightWall() {   //to test
         motorSpeedB = baseSpeed;
         Serial.println("Maintaining Position");
       }
-    }
-
-    // Debugging output for motor speeds
-    Serial.print("Motor Speed A: ");
-    Serial.println(motorSpeedA);
-    Serial.print("Motor Speed B: ");
-    Serial.println(motorSpeedB);
-
-    // Write motor speeds to motors
-    motorA_pwm.write(motorSpeedA);
-    motorB_pwm.write(motorSpeedB);
-
-    delay(50);
-  }
-}
-
+    }*/
 
 void motorA_up() {
   motorSpeedA = min(motorSpeedA + 0.1, 1.0);
@@ -2100,8 +2243,93 @@ void checkSensorsAndUpdateMaze() {
 }
 */
 
-
 void loop() {
+  BLEDevice central = BLE.central();
+
+  if (central) {
+    Serial.print("Connected to: ");
+    Serial.println(central.address());
+
+    while (central.connected()) {
+      // Check Bluetooth input
+      if (rxCharacteristic.written()) {
+        char command = rxCharacteristic.value()[0];
+        Serial.print("Received from BLE: ");
+        Serial.println(command);
+        processCommand(command);
+      }
+      // Check Serial input (USB)
+      if (Serial.available() > 0) {
+        char command = Serial.read();
+        Serial.print("Received from Serial: ");
+        Serial.println(command);
+        processCommand(command);
+      }
+    }
+    Serial.println("Disconnected");
+  }
+
+  // Always check Serial input, even if no BLE connection
+  if (Serial.available() > 0) {
+    char command = Serial.read();
+    Serial.print("Received from Serial: ");
+    Serial.println(command);
+    processCommand(command);
+  }
+}
+
+// Process received command
+void processCommand(char command) {
+  if (command == 'w') {
+    forward();
+  } else if (command == 'a') {
+    left();
+  } else if (command == 'd') {
+    right();
+  } else if (command == 's') {
+    reverse();
+  } else if (command == 'b') {
+    brake();
+  } else if (command == 'g') {
+    moveforward();
+  } else if (command == 'n') {
+    checksensorscheck();
+  } else if (command == 'u') {
+    motorA_up();
+    motorB_up();
+  } else if (command == 'h') {
+    motorA_down();
+    motorB_down();
+  } else if (command == 'e') {
+    equalizeMotor();
+  } else if (command == 'r') {
+    reset();
+  } else if (command == 'm') {
+    moveten();
+  } else if (command == 'l') {
+    turnninetyleft();
+  } else if (command == 'j') {
+    turnninetyright();
+  } else if (command == 'p') {
+    checkSensorsAndUpdateMaze();
+    updateMazeMap();
+    displayMazeMap();
+    // displayMazeMapOverBLE();
+  } else if (command == 'c') {
+    turnfourtyfiveleft();
+  } else if (command == 't') {
+    checknmove();
+  } else if (command == 'o') {
+    turn180();
+  } else if (command == 'k') {
+    maintainDistancefromRightWall();
+  } else if (command == 'y') {
+    alignFrontWithTwoSensors();
+  }
+}
+
+
+/*void loop() {
   // Check if data is available on the serial port
   if (Serial.available() > 0) {
     // Read incoming byte
@@ -2200,7 +2428,7 @@ void loop() {
     Serial.println(pulseCountB);
     Serial.print("Motor B distance: ");
     Serial.print(distanceB);
-    Serial.println(" m");*/
+    Serial.println(" m");*
   }
   delay(500);
-}
+}*/
