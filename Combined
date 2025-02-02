@@ -1,5 +1,10 @@
 #include <mbed.h>
 #include <ArduinoBLE.h>
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <climits>
+
 
 //Bluetooth--------------------------------------------------------------------------
 BLEService uartService("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");  // Nordic UART Service (NUS)
@@ -7,7 +12,7 @@ BLECharacteristic txCharacteristic("6E400003-B5A3-F393-E0A9-E50E24DCCA9E", BLERe
 BLECharacteristic rxCharacteristic("6E400002-B5A3-F393-E0A9-E50E24DCCA9E", BLEWrite, 20);
 //----------------------------------------------------------------------------------
 
-
+using namespace std;
 using namespace rtos;
 using namespace mbed;
 
@@ -52,33 +57,34 @@ DigitalInOut leftSensorPin(LEFT_ULTRASONIC_PIN);
 float getUltrasonicDistance(DigitalInOut &sensorPin) {
   Timer timer;
 
-  // Set the pin as output and send a 10us pulse
+  // Set the pin as output and send a 10us pulse (using delay)
   sensorPin.output();
   sensorPin = 0;
-  delay(50);
+  delay(1);  // Small delay for pulse, in milliseconds
   sensorPin = 1;
-  delay(500);
+  delay(10); // 10us pulse duration equivalent, using delay in ms
   sensorPin = 0;
 
   // Set the pin as input to wait for the echo
   sensorPin.input();
 
-  // Wait for the rising edge
+  // Wait for the rising edge (echo signal)
   while (!sensorPin.read()) {}
 
   // Start timing the high pulse
   timer.start();
 
-  // Wait for the falling edge
+  // Wait for the falling edge (echo finished)
   while (sensorPin.read()) {}
 
   // Stop the timer and calculate the distance
   timer.stop();
-  float duration_US = timer.read_us();      // Duration in microseconds
-  distance_L = (duration_US * 0.0343) / 2;  // Convert to cm (speed of sound is 343 m/s)
+  float duration_US = timer.read_us();  // Duration in microseconds
+  float distance_L = (duration_US * 0.0343) / 2;  // Convert to cm (speed of sound is 343 m/s)
 
   return distance_L;  // Return distance in cm
 }
+
 
 //----------------------------------------------------------------------------------
 
@@ -166,7 +172,53 @@ void stopThreads() {
   runningMapping = false;
   MappingThread.join();
 }
-//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------------
+
+
+//Djikstra--------------------------------------------------------------------------
+
+struct Node {
+    int x, y, cost;
+    Node(int _x, int _y, int _cost) : x(_x), y(_y), cost(_cost) {}
+};
+
+void dijkstra(int startX, int startY, int targetX, int targetY) {
+    queue<Node> q;
+    q.push(Node(startX, startY, 0));
+
+    while (!q.empty()) {
+        Node curr = q.front();
+        q.pop();
+
+        int x = curr.x, y = curr.y;
+        
+        if (x == targetX && y == targetY) {
+            // Found target
+            return;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            int nx = x + dx(i), ny = y + dy(i);  // Call your dx() and dy() functions
+            q.push(Node(nx, ny, curr.cost + 1));
+        }
+    }
+}
+
+
+bool canMove(int cx, int cy) {
+    for (int i = -1; i <= 1; i++) {      // Check 3 rows
+        for (int j = -1; j <= 1; j++) {  // Check 3 columns
+            int nx = cx + i, ny = cy + j;
+            if (nx < 0 || nx >= mazeHeight || ny < 0 || ny >= mazeWidth || mazeMap[nx][ny] == 1) {
+                return false;  // If any part of the 3×3 robot touches a wall, return false
+            }
+        }
+    }
+    return true;  // All 3×3 cells are free
+}
+
+
+//----------------------------------------------------------------------------------
 
 Timer speedTimer;  // Timer to calculate motor speed every second
 
@@ -1301,27 +1353,27 @@ void maintainDistancefromRightWall() {   //to test
 
   while (true) {
     Serial.print("Front Distance: ");
-    Serial.println(distance_F1);
+    Serial.println(distance_R1);
     Serial.print("Rear Distance: ");
-    Serial.println(distance_F2);
+    Serial.println(distance_R2);
 
     // --- Stage 1: Ensure Both Sensors Are Within Target Distance ---
-    if (distance_F1 > targetDistance + distanceTolerance && distance_F2 > targetDistance + distanceTolerance) {
+    if (distance_R1 > targetDistance + distanceTolerance && distance_R2 > targetDistance + distanceTolerance) {
       // Both sensors are too far from the wall -> Move closer
       motorSpeedA = baseSpeed;
-      motorSpeedB = min(baseSpeed + adjustment, 1.0);
+      motorSpeedB = min(baseSpeed + adjustment, 0.25);
       Serial.println("Moving Closer to Wall");
-    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 < targetDistance - distanceTolerance) {
+    } else if (distance_R1 < targetDistance - distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
       // Both sensors are too close to the wall -> Move farther
-      motorSpeedA = min(baseSpeed + adjustment, 1.0);
+      motorSpeedA = min(baseSpeed + adjustment, 0.25);
       motorSpeedB = baseSpeed;
       Serial.println("Moving Away from Wall");
-    } else if (distance_F1 > targetDistance + distanceTolerance && distance_F2 < targetDistance - distanceTolerance) {
+    } else if (distance_R1 > targetDistance + distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
       // Front sensor is too far, rear is too close -> Rotate clockwise
       motorSpeedA = baseSpeed + adjustment;
       motorSpeedB = baseSpeed - adjustment;
       Serial.println("Rotating Clockwise to Align");
-    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 > targetDistance + distanceTolerance) {
+    } else if (distance_R1 < targetDistance - distanceTolerance && distance_R2 > targetDistance + distanceTolerance) {
       // Front sensor is too close, rear is too far -> Rotate counterclockwise
       motorSpeedA = baseSpeed - adjustment;
       motorSpeedB = baseSpeed + adjustment;
@@ -1344,7 +1396,7 @@ void maintainDistancefromRightWall() {   //to test
 
 /*else {
       // --- Stage 2: Align the Robot ---
-      float alignmentDifference = distance_F2 - distance_F1;
+      float alignmentDifference = distance_R2 - distance_R1;
 
       if (abs(alignmentDifference) > alignmentTolerance) {
         if (alignmentDifference > alignmentTolerance) {
