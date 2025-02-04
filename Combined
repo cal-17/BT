@@ -382,6 +382,28 @@ void checksensorscheck() {
   delay(50);  // 500 ms delay
 }
 
+void sendSensorData() {
+  String data = "F1:" + String(distance_F1) + "cm" +
+                "F2:" + String(distance_F2) + "cm" +
+                "R1:" + String(distance_R1) + "cm" +
+                "R2:" + String(distance_R2) + "cm";
+
+  // Convert String to C-string
+  const char* sensorData = data.c_str();
+  int length = strlen(sensorData);
+
+  // Send data in chunks (max 10 bytes per packet)
+  for (int i = 0; i < length; i += 10) {
+    String chunk = data.substring(i, i + 10);  // Extract 10-character chunk
+    txCharacteristic.writeValue(chunk.c_str());  // Send chunk via BLE
+    delay(50);  // Small delay to ensure data is transmitted properly
+  }
+
+  Serial.println("Sent sensor data over BLE: " + data);
+}
+
+
+
 
 //volatile float wallThreshold = 10.0;  // Wall detection threshold in cm
 
@@ -725,9 +747,9 @@ void encoderISR_B() {
 
 void setup() {
 
-  Serial.begin(115200);
-  while (!Serial)
-    ;
+  //Serial.begin(115200);
+  //while (!Serial)
+  //;
 
   if (!BLE.begin()) {
     Serial.println("Failed to initialize BLE!");
@@ -735,7 +757,7 @@ void setup() {
       ;
   }
 
-  BLE.setLocalName("BT");
+  BLE.setLocalName("Cal-BT");
   BLE.setAdvertisedService(uartService);
 
   uartService.addCharacteristic(txCharacteristic);
@@ -776,9 +798,10 @@ void setup() {
   MappingThread.start(MovementMapping);
 
   initializeMazeMap();
-  updateMazeMap();
   checkSensorsAndUpdateMaze();
+  updateMazeMap();
   displayMazeMap();
+
 
   //alignRobot();
 
@@ -1409,10 +1432,10 @@ void maintainDistancefromRightWall2() {  //to test
 }
 
 void maintainDistancefromRightWall() {   //to test
-  const float targetDistance = 10.0;     // Desired distance from the wall in cm
+  const float targetDistance = 5.0;      // Desired distance from the wall in cm
   const float distanceTolerance = 0.5;   // Tolerance for maintaining distance (in cm)
-  const float alignmentTolerance = 0.2;  // Tolerance for alignment (in cm)
-  const float adjustment = 0.05;         // Adjustment increment for motors
+  const float alignmentTolerance = 0.5;  // Tolerance for alignment (in cm)
+  const float adjustment = 0.02;         // Adjustment increment for motors
   const float baseSpeed = 0.3;           // Base motor speed
 
   while (runningWallDistanceControl) {
@@ -1425,11 +1448,13 @@ void maintainDistancefromRightWall() {   //to test
     if (distance_R1 > targetDistance + distanceTolerance && distance_R2 > targetDistance + distanceTolerance) {
       // Both sensors are too far from the wall -> Move closer
       motorSpeedA = baseSpeed;
-      motorSpeedB = min(baseSpeed + adjustment, 0.25);
+      motorSpeedB = baseSpeed + adjustment;
+      //motorSpeedB = min(baseSpeed + adjustment, 0.25);
       Serial.println("Moving Closer to Wall");
     } else if (distance_R1 < targetDistance - distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
       // Both sensors are too close to the wall -> Move farther
-      motorSpeedA = min(baseSpeed + adjustment, 0.25);
+      motorSpeedA = baseSpeed + adjustment;
+      //motorSpeedA = min(baseSpeed + adjustment, 0.25);
       motorSpeedB = baseSpeed;
       Serial.println("Moving Away from Wall");
     } else if (distance_R1 > targetDistance + distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
@@ -1952,7 +1977,7 @@ void moveforward() {
   delay(100);
 }
 
-void moveForward(int numCells) {
+void moveForwardt(int numCells) {
   float gridSize = 0.05;                       // 5 cm per grid cell
   float targetDistance = numCells * gridSize;  // Total distance to move
 
@@ -2006,6 +2031,84 @@ void moveForward(int numCells) {
   brake();
   Serial.println("Reached target distance. Stopping.");
 }
+
+void moveForward(int numCells) {
+  float gridSize = 0.05;                       // 5 cm per grid cell (in meters)
+  float targetDistance = numCells * gridSize;  // Total distance to move (in meters)
+
+  int gridsMoved = 0;
+  float totalDistanceTravelled = 0.0;
+
+  // Reset pulse counts and distance for both motors
+  pulseCountDisA = 0;
+  pulseCountDisB = 0;
+  distanceA = 0;
+  distanceB = 0;
+
+  // Start moving forward
+  forward();
+  motorSpeedA = 0.3;
+  motorSpeedB = 0.3;
+  equalizeMotor();
+
+  DistanceA();
+  DistanceB();
+
+  while ((distanceA < targetDistance) && (distanceB < targetDistance)) {
+    DistanceA();
+    DistanceB();
+
+    // If the robot moves at least one grid cell (5 cm), update position
+    if (distanceA >= gridSize && distanceB >= gridSize) {
+      // Update grid count and total distance travelled
+      gridsMoved++;
+      totalDistanceTravelled += gridSize;
+
+      // Update the robot's grid position
+      robotX += dx(robotDir);
+      robotY += dy(robotDir);
+
+      Serial.println("Updated Position:");
+      Serial.print("X: ");
+      Serial.print(robotX);
+      Serial.print(" Y: ");
+      Serial.println(robotY);
+
+      // Print current progress
+      Serial.print("Grids moved: ");
+      Serial.println(gridsMoved);
+      Serial.print("Total distance travelled (cm): ");
+      Serial.println(totalDistanceTravelled * 100);  // converting meters to cm
+
+      // Reset distances for the next grid space
+      pulseCountDisA = 0;
+      pulseCountDisB = 0;
+      distanceA = 0;
+      distanceB = 0;
+
+      // Update the maze with sensor data
+      checkSensorsAndUpdateMaze();
+    }
+
+    // Stop early if an obstacle is detected
+    if (wallAhead()) {
+      brake();
+      Serial.println("Obstacle detected! Stopping.");
+      return;
+    }
+  }
+
+  // Stop the motors after moving the required grid spaces
+  brake();
+  Serial.println("Reached target distance. Stopping.");
+
+  // Final print-out of total progress
+  Serial.print("Final grids moved: ");
+  Serial.println(gridsMoved);
+  Serial.print("Final total distance travelled (cm): ");
+  Serial.println(totalDistanceTravelled * 100);
+}
+
 
 void moveForwardContinuous() {
   float gridSize = 0.05;  // 5 cm per grid cell
@@ -2473,8 +2576,8 @@ void loop() {
   BLEDevice central = BLE.central();
 
   if (central) {
-    Serial.print("Connected to: ");
-    Serial.println(central.address());
+    // Serial.print("Connected to: ");
+    //Serial.println(central.address());
 
     while (central.connected()) {
       // Check Bluetooth input
@@ -2485,23 +2588,23 @@ void loop() {
         processCommand(command);
       }
       // Check Serial input (USB)
-      if (Serial.available() > 0) {
+      /*if (Serial.available() > 0) {
         char command = Serial.read();
         Serial.print("Received from Serial: ");
         Serial.println(command);
         processCommand(command);
-      }
+      }*/
     }
-    Serial.println("Disconnected");
+    //Serial.println("Disconnected");
   }
 
-  /* // Always check Serial input, even if no BLE connection
+  // Always check Serial input, even if no BLE connection
   if (Serial.available() > 0) {
     char command = Serial.read();
     Serial.print("Received from Serial: ");
     Serial.println(command);
     processCommand(command);
-  } */
+  }
 }
 
 // Process received command
@@ -2540,6 +2643,7 @@ void processCommand(char command) {
     checkSensorsAndUpdateMaze();
     updateMazeMap();
     displayMazeMap();
+    sendSensorData(); 
     // displayMazeMapOverBLE();
   } else if (command == 'c') {
     turnfourtyfiveleft();
@@ -2557,7 +2661,7 @@ void processCommand(char command) {
     Serial.print(numCells);
     Serial.println(" grid spaces.");
     moveForward(numCells);
-  } else if (command == 'F') {
+  } else if (command == 'x') {
     // Start continuous forward movement
     Serial.println("Starting Continuous Forward with Wall Following");
     txCharacteristic.writeValue("Starting Continuous Forward with Wall Following");
@@ -2565,7 +2669,7 @@ void processCommand(char command) {
     startWallControlThread();
     // Move forward continuously
     moveForwardContinuous();
-  } else if (command == 'S') {
+  } else if (command == 'q') {
     // Stop all movement and wall control
     Serial.println("Stopping Movement and Wall Following");
     txCharacteristic.writeValue("Stopping Movement and Wall Following");
