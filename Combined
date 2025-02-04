@@ -258,7 +258,7 @@ void printMaze(const vector<pair<int, int>>& path) {
 
 bool wallAhead() {
   float avgFrontDistance = (distance_F1 + distance_F2) / 2.0;
-  return avgFrontDistance <= 15.0;
+  return avgFrontDistance <= 10.0;
 }
 
 bool gapOnRight() {
