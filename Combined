@@ -38,6 +38,9 @@ using namespace mbed;
 // Instantiate the I2C object
 I2C i2c(SCL_PIN, SDA_PIN);
 
+#define US_PIN P0_23             // Define pin for both Trigger and Echo
+DigitalInOut us_sensor(US_PIN);  // Use same pin for trigger and echo
+
 void setMultiplexerBus(uint8_t busCommand);
 float readDistanceCM();
 void handleI2CError(int result);
@@ -48,43 +51,6 @@ volatile float distance_R1;
 volatile float distance_R2;
 
 volatile float distance_L;
-
-// Example pin for left ultrasonic sensor (modify based on your setup)
-#define LEFT_ULTRASONIC_PIN P0_23
-
-DigitalInOut leftSensorPin(LEFT_ULTRASONIC_PIN);
-
-float getUltrasonicDistance(DigitalInOut& sensorPin) {
-  Timer timer;
-
-  // Set the pin as output and send a 10us pulse (using delay)
-  sensorPin.output();
-  sensorPin = 0;
-  delay(1);  // Small delay for pulse, in milliseconds
-  sensorPin = 1;
-  delay(10);  // 10us pulse duration equivalent, using delay in ms
-  sensorPin = 0;
-
-  // Set the pin as input to wait for the echo
-  sensorPin.input();
-
-  // Wait for the rising edge (echo signal)
-  while (!sensorPin.read()) {}
-
-  // Start timing the high pulse
-  timer.start();
-
-  // Wait for the falling edge (echo finished)
-  while (sensorPin.read()) {}
-
-  // Stop the timer and calculate the distance
-  timer.stop();
-  float duration_US = timer.read_us();            // Duration in microseconds
-  float distance_L = (duration_US * 0.0343) / 2;  // Convert to cm (speed of sound is 343 m/s)
-
-  return distance_L;  // Return distance in cm
-}
-
 
 //----------------------------------------------------------------------------------
 
@@ -130,6 +96,8 @@ volatile float distancePerPulseA = wheelCircumference / pulsesPerRevolutionA;  /
 volatile float distancePerPulseB = wheelCircumference / pulsesPerRevolutionB;  // Distance per pulse for Motor B
 
 volatile int Equalized = 0;
+
+Timer speedTimer;  // Timer to calculate motor speed every second
 //----------------------------------------------------------------------------------
 
 //Maze------------------------------------------------------------------------------
@@ -284,7 +252,7 @@ void decisionMaker() {
 }
 
 
-Timer speedTimer;  // Timer to calculate motor speed every second
+
 
 void handleI2CError(int result) {
   if (result != 0) {
@@ -329,47 +297,105 @@ float readDistanceCM() {
   return distanceCM;
 }
 
+// Function to measure distance
+void USDistance_L() {
+  Timer timer;
+  float duration;
+
+  // Set pin as output to send trigger pulse
+  us_sensor.output();
+  us_sensor = 0;  // Ensure LOW before triggering
+  wait_us(2);
+  us_sensor = 1;  // Trigger pulse
+  wait_us(10);
+  us_sensor = 0;
+
+  // Switch pin to input to read echo
+  us_sensor.input();
+
+  // Wait for echo HIGH with timeout
+  int timeout = 30000;  // 30ms timeout
+  while (us_sensor == 0 && timeout > 0) {
+    wait_us(1);
+    timeout--;
+  }
+  if (timeout <= 0) {
+    Serial.println("Timeout waiting for echo HIGH");
+    distance_L = -1.0f;  // Indicate failure
+    return;
+  }
+
+  // Start timer when echo goes HIGH
+  timer.start();
+
+  // Wait for echo LOW with timeout
+  timeout = 30000;  // Reset timeout
+  while (us_sensor == 1 && timeout > 0) {
+    wait_us(1);
+    timeout--;
+  }
+  timer.stop();
+
+  if (timeout <= 0) {
+    Serial.println("Timeout waiting for echo LOW");
+    distance_L = -1.0f;  // Indicate failure
+    return;
+  }
+
+  // Get elapsed time in microseconds
+  duration = timer.elapsed_time().count();
+
+  // Calculate distance (speed of sound = 34300 cm/s)
+  distance_L = (duration * 0.0343f) / 2.0f;
+
+  // Subtract 1 cm from the measured distance
+  distance_L -= 1.0f;  // Now distance_L is reduced by 1 cm
+}
+
 void checksensors() {
   while (runningSensors) {
     setMultiplexerBus(MUX_BUS_0);
     distance_F1 = readDistanceCM();
-    delay(50);  // 500 ms delay
+    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
 
     setMultiplexerBus(MUX_BUS_1);
     distance_F2 = readDistanceCM();
-    delay(50);  // 500 ms delay
+    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
 
     setMultiplexerBus(MUX_BUS_2);
     distance_R1 = readDistanceCM();
-    delay(50);  // 500 ms delay
+    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
 
     setMultiplexerBus(MUX_BUS_3);
     distance_R2 = readDistanceCM();
-    delay(50);  // 500 ms delay
+    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
+
+    USDistance_L();
+    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
   }
 }
 
 void checksensorscheck() {
 
-  Serial.print("Sensor 1 Distance: ");
+  Serial.print("Sensor F1 Distance: ");
   Serial.print(distance_F1);
   Serial.println(" cm");
 
   delay(50);  // 500 ms delay
 
-  Serial.print("Sensor 2 Distance: ");
+  Serial.print("Sensor F2 Distance: ");
   Serial.print(distance_F2);
   Serial.println(" cm");
 
   delay(50);  // 500 ms delay
 
-  Serial.print("Sensor L Distance: ");
+  Serial.print("Sensor R1 Distance: ");
   Serial.print(distance_R1);
   Serial.println(" cm");
 
   delay(50);  // 500 ms delay
 
-  Serial.print("Sensor R Distance: ");
+  Serial.print("Sensor R2 Distance: ");
   Serial.print(distance_R2);
   Serial.println(" cm");
 
@@ -383,10 +409,7 @@ void checksensorscheck() {
 }
 
 void sendSensorData() {
-  String data = "F1:" + String(distance_F1) + "cm" +
-                "F2:" + String(distance_F2) + "cm" +
-                "R1:" + String(distance_R1) + "cm" +
-                "R2:" + String(distance_R2) + "cm";
+  String data = "F1:" + String(distance_F1) + "cm" + "F2:" + String(distance_F2) + "cm" + "R1:" + String(distance_R1) + "cm" + "R2:" + String(distance_R2) + "cm" + "L1:" + String(distance_L) + "cm";
 
   // Convert String to C-string
   const char* sensorData = data.c_str();
@@ -394,9 +417,9 @@ void sendSensorData() {
 
   // Send data in chunks (max 10 bytes per packet)
   for (int i = 0; i < length; i += 10) {
-    String chunk = data.substring(i, i + 10);  // Extract 10-character chunk
+    String chunk = data.substring(i, i + 10);    // Extract 10-character chunk
     txCharacteristic.writeValue(chunk.c_str());  // Send chunk via BLE
-    delay(50);  // Small delay to ensure data is transmitted properly
+    delay(50);                                   // Small delay to ensure data is transmitted properly
   }
 
   Serial.println("Sent sensor data over BLE: " + data);
@@ -580,6 +603,8 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
   int R1_startY = robotY + forwardDy + rightDy;
   int R2_startX = robotX - forwardDx + rightDx;  // R2 is one grid backward and right
   int R2_startY = robotY - forwardDy + rightDy;
+  int L_startX = robotX + leftDx;                // L is one grid left and forward
+  int L_startY = robotY + leftDy;
 
   // Process the front-left sensor (F1)
   if (distance_F1 < Threshold) {
@@ -619,6 +644,17 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
     Serial.println("No wall detected by R2.");
     processSensorData(distance_R2, R2_startX, R2_startY, rightDx, rightDy, false);
   }
+
+  // Process the left sensor (L)
+  if (distance_L < Threshold) {
+    Serial.print(distance_L);
+    Serial.println("Wall detected by L.");
+    processSensorData(distance_L, L_startX, L_startY, leftDx, leftDy, true);
+  } else {
+    Serial.println("No wall detected by L.");
+    processSensorData(distance_L, L_startX, L_startY, leftDx, leftDy, false);
+  }
+
   Serial.print("Front 1 Sensor Distance: ");
   Serial.print(distance_F1);
   Serial.println(" cm");
@@ -635,6 +671,10 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
 
   Serial.print("Right 2 Sensor Distance: ");
   Serial.print(distance_R2);
+  Serial.println(" cm");
+
+  Serial.print("Left Sensor Distance: ");
+  Serial.print(distance_L);
   Serial.println(" cm");
 }
 
@@ -770,9 +810,6 @@ void setup() {
   // Initialize Serial communication at 9600 baud rate
   Serial.begin(9600);
   Serial.println("Serial communication started.");
-
-  // Set the multiplexer to bus 0
-  //setMultiplexerBus(MUX_BUS_0);
 
   // Set PWM period (optional, depending on motor driver requirements)
   motorA_pwm.period(0.001);  // Set PWM period to 1 ms for motor 1
@@ -1479,7 +1516,7 @@ void maintainDistancefromRightWall() {   //to test
     motorA_pwm.write(motorSpeedA);
     motorB_pwm.write(motorSpeedB);
 
-    delay(50);
+    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
   }
 }
 
@@ -2643,7 +2680,7 @@ void processCommand(char command) {
     checkSensorsAndUpdateMaze();
     updateMazeMap();
     displayMazeMap();
-    sendSensorData(); 
+    sendSensorData();
     // displayMazeMapOverBLE();
   } else if (command == 'c') {
     turnfourtyfiveleft();
