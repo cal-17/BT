@@ -17,7 +17,6 @@ int SerialEnabled = 1;
 int DebugEnabled = 1;
 int VerboseEnabled = 1;
 
-bool Moving = false; // <-- MOVE THIS LATER
 
 //----------------------------------------------------------------------------------
 
@@ -76,7 +75,7 @@ DigitalOut motorB_dir(P0_5);  // Motor 2 direction pin
 InterruptIn encoderA(P1_12);
 InterruptIn encoderB(P1_11);
 
-bool TurnCheck = true;
+bool TurnCheck = false;
 
 // Define motor speed (between 0.0 and 1.0)
 volatile float motor_speed = 0.0;
@@ -86,6 +85,10 @@ volatile int pulseCountA = 0;
 volatile int pulseCountB = 0;
 volatile int pulseCountDisA = 0;
 volatile int pulseCountDisB = 0;
+volatile int pulseCountA2 = 0;
+volatile int pulseCountB2 = 0;
+volatile int pulseCountDisA2 = 0;
+volatile int pulseCountDisB2 = 0;
 volatile float motorSpeedA = 0.0;      // Motor A speed
 volatile float motorSpeedB = 0.0;      // Motor B speed
 volatile float motorSpeedReadA = 0.0;  // Motor A speed measured in RPM
@@ -94,6 +97,9 @@ volatile float motorSpeedReadB = 0.0;  // Motor B speed measured in RPM
 // Total distance traveled by each motor
 volatile float distanceA = 0.0;
 volatile float distanceB = 0.0;
+
+volatile float avgDistance = (distanceA + distanceB) / 2.0;
+
 
 // Encoder pulses per revolution (adjust to match your encoder's spec)
 volatile float pulsesPerRevolutionA = 330.0;  // Motor A encoder PPR
@@ -112,9 +118,11 @@ Timer speedTimer;  // Timer to calculate motor speed every second
 //----------------------------------------------------------------------------------
 
 //Maze------------------------------------------------------------------------------
-const int mazeWidth = 35;        //29
-const int mazeHeight = 45;       //40
-volatile float gridSize = 0.05;  //cm
+const int mazeWidth = 35;               //29
+const int mazeHeight = 45;              //40
+volatile float gridSize = 0.05;         //m
+volatile float totalAvgDistance = 0.0;  // Total accumulated distance
+int totalGridsMoved = 0;                // Count how many grids moved
 
 int mazeMap[mazeHeight][mazeWidth];
 
@@ -156,7 +164,11 @@ void stopThreads() {
 
   runningMapping = false;
   MappingThread.join();
+
+  measureAvgDis = false;
+  distanceThread.join();
 }
+
 
 /*void stopWallControlThread() {
   runningWallDistanceControl = false;  // Stop the thread when needed
@@ -166,47 +178,57 @@ void stopThreads() {
 
 void startWallControlThread() {
   WallControlThread.start(maintainDistancefromRightWall);  // Start the thread
-}*/
+}
 
 void startAvgDistanceThread() {
-  distanceThread.start(callback(measureAverageDistance));  // Start the distance measurement thread
+  distanceThread.start(measureAverageDistance);  // Start the distance measurement thread
 }
 
 void stopAvgDistanceThread() {
-  measureAvgDis = false;  // Stop the thread
-  distanceThread.join();  // Wait for the thread to finish
-}
+  measureAvgDis = false;
+  distanceThread.join();
+}*/
 
 void measureAverageDistance() {
   while (measureAvgDis) {
+    if (TurnCheck == false) {  // Only measure distance when not turning
 
-    // Measure movement using distance sensors
-    DistanceA();
-    DistanceB();
-    float avgDistance = (distanceA + distanceB) / 2.0;
+      DistanceA();
+      DistanceB();
+      //float avgDistance = (distanceA + distanceB) / 2.0;
 
-    Serial.print("Avg Distance: ");
-    Serial.println(avgDistance);
+      totalAvgDistance += avgDistance;
 
-    if (avgDistance >= gridSize) {
-      // Update position
-      robotX += dx(robotDir);
-      robotY += dy(robotDir);
+      /*
+      Serial.print("Avg Distance: ");
+      Serial.println(avgDistance);
+*/
+      if (avgDistance >= gridSize) {
+        // Update position
+        robotX += dx(robotDir);
+        robotY += dy(robotDir);
+        totalGridsMoved++;
 
-      Serial.println("Updated Position:");
-      Serial.print("X: ");
-      Serial.print(robotX);
-      Serial.print(" Y: ");
-      Serial.println(robotY);
+        Serial.println("Updated Position:");
+        Serial.print("X: ");
+        Serial.print(robotX);
+        Serial.print(" Y: ");
+        Serial.println(robotY);
 
-      // Reset distances
-      pulseCountDisA = 0;
-      pulseCountDisB = 0;
-      distanceA = 0;
-      distanceB = 0;
-
-      //ThisThread::sleep_for(20ms);  // Adjust sampling rate
+        Serial.print("Total Grids Moved: ");
+        Serial.println(totalGridsMoved);
+        // Reset distances
+        pulseCountDisA2 = 0;
+        pulseCountDisB2 = 0;
+        distanceA2 = 0;
+        distanceB2 = 0;
+      }
+      /*
+      Serial.print("Total Average Distance: ");
+      Serial.println(totalAvgDistance);
+      */
     }
+    ThisThread::sleep_for(20ms);  // Adjust sampling rate
   }
 }
 
@@ -256,7 +278,7 @@ bool canMove(int cx, int cy) {
   return true;  // All 3×3 cells are free
 }
 
-void printMaze(const vector<pair<int, int>>& path) {
+void printMazePath(const vector<pair<int, int>>& path) {
   // Mark path on the maze with '2' (or any character you prefer)
   for (const auto& p : path) {
     mazeMap[p.first][p.second] = 2;
@@ -461,7 +483,7 @@ void checksensorscheck() {
   delay(50);  // 500 ms delay
 }
 
-void sendSensorData() {
+/*void sendSensorData() {
   String data = "F1:" + String(distance_F1) + "cm" + "F2:" + String(distance_F2) + "cm" + "R1:" + String(distance_R1) + "cm" + "R2:" + String(distance_R2) + "cm" + "L1:" + String(distance_L) + "cm";
 
   // Convert String to C-string
@@ -476,7 +498,7 @@ void sendSensorData() {
   }
 
   Serial.println("Sent sensor data over BLE: " + data);
-}
+}*/
 
 void Debug(String Message, bool Verbose) {
   if (DebugEnabled) {
@@ -614,8 +636,6 @@ void displayMazeMapOverBLE() {
 
   Serial.println("Maze sent over BLE!");
 }
-
-
 
 void updateMazeMap() {
   // Mark all the cells occupied by the robot as empty (0)
@@ -781,14 +801,52 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
   Serial.println(" cm");
 }
 
+void smartMapUnknowns() {
+  for (int y = 1; y < mazeHeight - 1; y++) {
+    for (int x = 1; x < mazeWidth - 1; x++) {
+      if (mazeMap[y][x] == -1 || mazeMap[y][x] == 0) {  // If the cell is unknown
+        // Check if the unknown cell is surrounded by walls on the same row (y-axis)
+        if (mazeMap[y][x - 1] == 1 && mazeMap[y][x + 1] == 1) {
+          mazeMap[y][x] = 1;  // Mark as wall
+          clearPathToWall(robotX, robotY, x, y);
+        }
+        // Check if the unknown cell is surrounded by walls on the same column (x-axis)
+        if (mazeMap[y - 1][x] == 1 && mazeMap[y + 1][x] == 1) {
+          mazeMap[y][x] = 1;  // Mark as wall
+          clearPathToWall(robotX, robotY, x, y);
+        }
+      }
+    }
+  }
+}
+
+void clearPathToWall(int startX, int startY, int endX, int endY) {
+  // Check if the path is horizontal or vertical
+  if (startX == endX) {  // Vertical path
+    int minY = min(startY, endY);
+    int maxY = max(startY, endY);
+    for (int y = minY + 1; y < maxY; y++) {  // Avoid marking the robot's position or the wall itself
+      if (mazeMap[y][startX] == -1) {        // Mark as free space if it was unknown
+        mazeMap[y][startX] = 0;              // Free space
+      }
+    }
+  } else if (startY == endY) {  // Horizontal path
+    int minX = min(startX, endX);
+    int maxX = max(startX, endX);
+    for (int x = minX + 1; x < maxX; x++) {  // Avoid marking the robot's position or the wall itself
+      if (mazeMap[startY][x] == -1) {        // Mark as free space if it was unknown
+        mazeMap[startY][x] = 0;              // Free space
+      }
+    }
+  }
+}
 
 
-
-
+/*
 void MovementMapping() {
   while (runningMapping) {
-    if (Moving == false){
-    //if (TurnCheck == false) {
+    if (Moving == false) {
+      //if (TurnCheck == false) {
       // Store the robot's last known state
       static int lastRobotX = robotX;
       static int lastRobotY = robotY;
@@ -805,7 +863,7 @@ void MovementMapping() {
         lastRobotX = robotX;
         lastRobotY = robotY;
       }
-      
+
 
 
       if (TurnCheck != true) {
@@ -850,8 +908,8 @@ void MovementMapping() {
     }
   }
   ThisThread::sleep_for(100ms);  // Non-blocking sleep for 20ms
-}
-/*
+}*/
+
 void MovementMapping() {
   while (runningMapping) {
     // Store the robot's last known state
@@ -885,7 +943,7 @@ void MovementMapping() {
     }
   }
 }
-*/
+
 
 int dx(int direction) {
   // Determine how to move in the X direction based on the robot's orientation
@@ -952,12 +1010,15 @@ void markAsUnknown(int x, int y) {
 void encoderISR_A() {
   pulseCountA++;
   pulseCountDisA++;
+    pulseCountDisA2++;
 }
 
 // Interrupt handler for encoder B (Motor B)
 void encoderISR_B() {
   pulseCountB++;
   pulseCountDisB++;
+    pulseCountDisB2++;
+
 }
 
 void setup() {
@@ -1009,6 +1070,9 @@ void setup() {
 
   MappingThread.start(MovementMapping);
 
+  distanceThread.start(measureAverageDistance);
+
+
   initializeMazeMap();
 
   Mapsetup();
@@ -1042,7 +1106,7 @@ void setStartPosition(int startX, int startY) {
 
 void alignRobot() {
   // Step 1: Align to the front (5 cm from the front wall)
-  alignFront();
+  alignFrontt();
 
   // Step 2: Turn 90 degrees right
   turnfourtyfiveright();
@@ -1051,7 +1115,7 @@ void alignRobot() {
 
   turnfourtyfiveright();
   // Step 3: Align to the new front (after turning, it is the previous right side)
-  alignFront();
+  alignFrontt();
 
   // Step 4: Turn 90 degrees right again
   turnfourtyfiveright();
@@ -1061,7 +1125,7 @@ void alignRobot() {
   turnfourtyfiveright();
 }
 
-void alignFront() {
+void alignFrontt() {
 
   // First, check the distance to the front wall
   while (distance_F1 > 0.10) {  // If the front sensor is further than 5 cm, move forward
@@ -1519,261 +1583,11 @@ void alignFrontWithTwoSensorsT() {
   }
 }
 
-
-/*
-if (abs(sensorDifference) > alignmentTolerance) {
-      // If left is farther, turn slightly right
-      if (sensorDifference > 0) {
-        motorSpeedA = slowSpeed;  // Slow down right motor
-        motorSpeedB = fastSpeed;  // Speed up left motor
-      }
-      // If right is farther, turn slightly left
-      else {
-        motorSpeedA = fastSpeed;  // Speed up right motor
-        motorSpeedB = slowSpeed;  // Slow down left motor
-      }
-    } else {
-      // Maintain equal motor speeds for forward/backward motion
-      motorSpeedA = fastSpeed;
-      motorSpeedB = fastSpeed;
-    }
-
-    // Debugging output
-    Serial.print("Motor Speed A: ");
-    Serial.println(motorSpeedA);
-    Serial.print("Motor Speed B: ");
-    Serial.println(motorSpeedB);
-
-    delay(100);  // Adjust delay to balance precision and responsiveness
-  }
-}*/
-/*
-void maintainDistancefromRightWall1() {
-  const float distanceThreshold = 0.1;
-  const float targetDistance = 10.0;
-  const float adjustment = 0.1;
-  const float baseSpeed = 0.0;
-
-  while (true) {
-    // checksensors();
-
-    Serial.print("Front Sensor Distance: ");
-    Serial.print(distance_R1);
-    Serial.println(" cm");
-    Serial.print("Rear Sensor Distance: ");
-    Serial.print(distance_R2);
-    Serial.println(" cm");
-
-    // Calculate the difference between the front and rear distances
-    float distanceDifference = distance_R2 - distance_R1;
-    if (abs(distanceDifference) <= distanceThreshold) {
-      // Sensors are aligned within the threshold
-      Serial.println("Sensors aligned. Stopping adjustment.");
-      brake();  // Stop the motors
-      break;    // Exit the loop
-    } else if (distanceDifference > distanceThreshold) {
-      // Front is farther from the wall; adjust left
-      motorSpeedA = baseSpeed;                           //motorSpeedA = max(motorSpeedA - adjustment, 0.0);  // Decrease right motor speed
-      motorSpeedB = min(motorSpeedB + adjustment, 0.2);  // Increase left motor speed
-    } else if (distanceDifference < -distanceThreshold) {
-      // Rear is farther from the wall; adjust right
-      motorSpeedA = min(motorSpeedA + adjustment, 0.2);  // Increase right motor speed
-      motorSpeedB = baseSpeed;                           // motorSpeedB = max(motorSpeedB - adjustment, 0.0);  // Decrease left motor speed
-    }
-
-    // Debugging output
-    Serial.print("Motor Speed A: ");
-    Serial.println(motorSpeedA);
-    Serial.print("Motor Speed B: ");
-    Serial.println(motorSpeedB);
-
-    // Write motor speeds
-    motorA_pwm.write(motorSpeedA);
-    motorB_pwm.write(motorSpeedB);
-
-    // Allow time for adjustments
-    delay(50);
-  }
-}
-
-
-void maintainDistancefromRightWall2() {  //to test
-  const float targetDistance = 10.0;     // Desired distance from the wall in cm
-  const float distanceTolerance = 0.5;   // Tolerance for maintaining distance (in cm)
-  const float alignmentTolerance = 0.2;  // Tolerance for alignment (in cm)
-  const float adjustment = 0.05;         // Adjustment increment for motors
-  const float baseSpeed = 0.2;           // Base motor speed
-
-  while (true) {
-
-    Serial.print("Front Distance: ");
-    Serial.println(distance_F1);
-    Serial.print("Rear Distance: ");
-    Serial.println(distance_F2);
-
-    // --- Stage 1: Ensure Both Sensors Are Within Target Distance ---
-    if (distance_F1 > targetDistance + distanceTolerance && distance_F2 < targetDistance + distanceTolerance) {
-      // front further than rear
-      motorSpeedA = baseSpeed;
-      motorSpeedB = min(baseSpeed + adjustment, 1.0);
-      Serial.println("Moving Closer to Wall");
-    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 > targetDistance - distanceTolerance) {
-      // Both sensors are too close to the wall -> Move farther
-      motorSpeedA = min(baseSpeed + adjustment, 1.0);
-      motorSpeedB = baseSpeed;
-      Serial.println("Moving Away from Wall");
-    } else if (distance_F1 > targetDistance + distanceTolerance && distance_F2 > targetDistance + distanceTolerance) {
-      // Both sensors are too far from the wall -> Move closer
-      motorSpeedA = baseSpeed;
-      motorSpeedB = min(baseSpeed + adjustment, 1.0);
-      Serial.println("Moving Closer to Wall");
-    } else if (distance_F1 < targetDistance - distanceTolerance && distance_F2 < targetDistance - distanceTolerance) {
-      // Both sensors are too close to the wall -> Move farther
-      motorSpeedA = min(baseSpeed + adjustment, 1.0);
-      motorSpeedB = baseSpeed;
-      Serial.println("Moving Away from Wall");
-    }
-
-    // Debugging output for motor speeds
-    Serial.print("Motor Speed A: ");
-    Serial.print(motorSpeedA);
-    Serial.print(" | Motor Speed B: ");
-    Serial.println(motorSpeedB);
-
-    // Write motor speeds to motors
-    motorA_pwm.write(motorSpeedA);
-    motorB_pwm.write(motorSpeedB);
-
-    delay(50);
-  }
-}
-
-void maintainDistancefromRightWall4() {  //to test
-  const float targetDistance = 5.0;      // Desired distance from the wall in cm
-  const float distanceTolerance = 0.5;   // Tolerance for maintaining distance (in cm)
-  const float alignmentTolerance = 0.5;  // Tolerance for alignment (in cm)
-  const float adjustment = 0.05;         // Adjustment increment for motors
-  const float baseSpeed = 0.2;           // Base motor speed
-
-  equalizeMotor();  // Balance the motors before starting control
-
-  while (true) {
-    Serial.print("Front Distance: ");
-    Serial.println(distance_R1);
-    Serial.print("Rear Distance: ");
-    Serial.println(distance_R2);
-
-    motorSpeedB = baseSpeed;
-    motorSpeedA = baseSpeed;
-
-    // --- Stage 1: Ensure Both Sensors Are Within Target Distance ---
-    if (distance_R1 > targetDistance + distanceTolerance && distance_R2 > targetDistance + distanceTolerance) {
-      // Both sensors are too far from the wall -> Move closer
-      motorSpeedB = baseSpeed;
-      motorSpeedA = baseSpeed + adjustment;
-      //motorSpeedB = min(baseSpeed + adjustment, 0.25);
-      Serial.println("Moving Closer to Wall");
-    } else if (distance_R1 < targetDistance - distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
-      // Both sensors are too close to the wall -> Move farther
-      motorSpeedB = baseSpeed + adjustment;
-      //motorSpeedA = min(baseSpeed + adjustment, 0.25);
-      motorSpeedA = baseSpeed;
-      Serial.println("Moving Away from Wall");
-    } else if (distance_R1 > targetDistance + distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
-      // Front sensor is too far, rear is too close -> Rotate clockwise
-      motorSpeedB = baseSpeed + adjustment;
-      motorSpeedA = baseSpeed - adjustment;
-      Serial.println("Rotating Clockwise to Align");
-    } else if (distance_R1 < targetDistance - distanceTolerance && distance_R2 > targetDistance + distanceTolerance) {
-      // Front sensor is too close, rear is too far -> Rotate counterclockwise
-      motorSpeedB = baseSpeed - adjustment;
-      motorSpeedA = baseSpeed + adjustment;
-      Serial.println("Rotating Counterclockwise to Align");
-    }
-
-    // Safety stop condition (e.g., obstacle detected)
-    if (wallAhead()) {
-      brake();
-      stopWallControlThread();
-
-      Serial.println("Obstacle detected! Stopping.");
-      break;
-    }
-
-    // Debugging output for motor speeds
-    Serial.print("Motor Speed A: ");
-    Serial.print(motorSpeedA);
-    Serial.print(" | Motor Speed B: ");
-    Serial.println(motorSpeedB);
-
-    // Write motor speeds to motors
-    motorA_pwm.write(motorSpeedA);
-    motorB_pwm.write(motorSpeedB);
-
-    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
-  }
-}
-
-void maintainDistancefromRightWall3() {  //to test
-  const float targetDistance = 5.0;      // Desired distance from the wall in cm
-  const float distanceTolerance = 0.5;   // Tolerance for maintaining distance (in cm)
-  const float adjustment = 0.05;         // Adjustment increment for motors
-  const float baseSpeed = 0.3;           // Base motor speed
-
-  equalizeMotor();  // Balance the motors before starting control
-
-  while (runningWallDistanceControl) {
-    Serial.print("Front Distance: ");
-    Serial.println(distance_R1);
-    Serial.print("Rear Distance: ");
-    Serial.println(distance_R2);
-
-    // Reset motor speeds to base values before adjustments
-    motorSpeedA = baseSpeed;
-    motorSpeedB = baseSpeed;
-
-    // --- Real-time correction logic ---
-    if (distance_R1 > targetDistance + distanceTolerance && distance_R2 > targetDistance + distanceTolerance) {
-      // Both sensors are too far from the wall -> Move closer
-      motorSpeedA += adjustment;
-      Serial.println("Moving Closer to Wall");
-    } else if (distance_R1 < targetDistance - distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
-      // Both sensors are too close to the wall -> Move farther
-      motorSpeedB += adjustment;
-      Serial.println("Moving Away from Wall");
-    } else if (distance_R1 > targetDistance + distanceTolerance && distance_R2 < targetDistance - distanceTolerance) {
-      // Front sensor is too far, rear is too close -> Rotate clockwise
-      motorSpeedA -= adjustment;
-      motorSpeedB += adjustment;
-      Serial.println("Rotating Clockwise to Align");
-    } else if (distance_R1 < targetDistance - distanceTolerance && distance_R2 > targetDistance + distanceTolerance) {
-      // Front sensor is too close, rear is too far -> Rotate counterclockwise
-      motorSpeedA += adjustment;
-      motorSpeedB -= adjustment;
-      Serial.println("Rotating Counterclockwise to Align");
-    }
-
-    // Debugging output for motor speeds
-    Serial.print("Motor Speed A: ");
-    Serial.print(motorSpeedA);
-    Serial.print(" | Motor Speed B: ");
-    Serial.println(motorSpeedB);
-
-    // Write motor speeds to motors
-    motorA_pwm.write(motorSpeedA);
-    motorB_pwm.write(motorSpeedB);
-
-    ThisThread::sleep_for(20ms);  // Non-blocking sleep for 20ms
-  }
-}
-*/
-
 void maintainDistancefromRightWall() {
-  const float targetDistance = 5.0;      // Desired distance from the wall in cm
-  const float distanceTolerance = 0.25;  // Tolerance for maintaining distance (in cm)
-  const float adjustment = 0.05;         // Adjustment increment for motors
-  const float baseSpeed = 0.3;           // Base motor speed
-  const float gridSize = 0.05;           // 5 cm per grid cell
+  const float targetDistance = 5.0;     // Desired distance from the wall in
+  const float distanceTolerance = 0.2;  // Tolerance for maintaining distance
+  const float adjustment = 0.05;        // Adjustment increment for motors
+  const float baseSpeed = 0.3;          // Base motor speed
 
   // Reset pulse counts and distances
   pulseCountDisA = 0;
@@ -1781,10 +1595,10 @@ void maintainDistancefromRightWall() {
   distanceA = 0;
   distanceB = 0;
 
-  startAvgDistanceThread();
+  //startAvgDistanceThread();
 
   equalizeMotor();  // Balance the motors before starting control
-  //startWallControlThread();
+  TurnCheck = false;
 
   while (true) {
     Serial.print("Front Distance: ");
@@ -1792,10 +1606,10 @@ void maintainDistancefromRightWall() {
     Serial.print(" | Rear Distance: ");
     Serial.println(distance_R2);
 
-    Debug("Sensor F1 Distance: ", false);
-    DebugLn(String(distance_F1), false);
-    Debug("Sensor F2 Distance: ", false);
-    DebugLn(String(distance_F2), false);
+    Debug("Sensor R1 Distance: ", false);
+    DebugLn(String(distance_R1), false);
+    Debug("Sensor R2 Distance: ", false);
+    DebugLn(String(distance_R2), false);
 
 
     // Default motor speeds
@@ -1819,12 +1633,16 @@ void maintainDistancefromRightWall() {
       motorSpeedA = baseSpeed;
       motorSpeedB = baseSpeed + adjustment;
       Serial.println("Rotating Counterclockwise to Align");
+    } else {
+      motorSpeedA = baseSpeed;
+      motorSpeedB = baseSpeed;
+      Serial.println("Maintaining Distance from Wall");
     }
 
     /*       // --- Track Position Based on Distance Traveled ---
     DistanceA();
     DistanceB();
- float avgDistance = (distanceA + distanceB) / 2.0;
+  float avgDistance = (distanceA + distanceB) / 2.0;
 
     if (avgDistance >= gridSize) {
       robotX += dx(robotDir);
@@ -1842,18 +1660,23 @@ void maintainDistancefromRightWall() {
       distanceA = 0;
       distanceB = 0;
       //checkSensorsAndUpdateMaze();  // Optionally update the maze mapping
-    }
-    */
+    }*/
+
     //ThisThread::sleep_for(80ms);
-    delay(20);
+    ThisThread::sleep_for(15ms);  // Non-blocking sleep for
     // --- Obstacle Detection and Stop Condition ---
     if (wallAhead()) {
       brake();
-      stopAvgDistanceThread();
-      //stopWallControlThread();
+      //stopAvgDistanceThread();
       Serial.println("Obstacle detected! Stopping.");
       break;
     }
+
+    Debug("Grids Moved: ", false);
+    DebugLn(String(totalGridsMoved), false);
+
+    Debug("Total Distance Moved: ", false);
+    DebugLn(String(totalAvgDistance), false);
 
     /*// Debugging output for motor speeds
     Serial.print("Motor Speed A: ");
@@ -1870,7 +1693,53 @@ void maintainDistancefromRightWall() {
   }
 }
 
-void AlignFront() {
+void finishGridSpace() {
+  const float targetDistance = 5.0;     // 5 cm for one grid space
+  const float distanceTolerance = 0.2;  // Tolerance for completion (in cm)
+  const float baseSpeed = 0.3;          // Base motor speed
+
+  float remainingDistance = targetDistance - avgDistance;  // Remaining distance to cover
+
+  // If the robot is already within tolerance of the target distance
+  if (remainingDistance <= distanceTolerance) {
+    DebugLn("Already within target distance, no need to move.", false);
+  } else {
+
+    // Move the robot forward until the remaining distance is covered
+    while (remainingDistance > distanceTolerance) {
+      DistanceA();  // Update distance measurements
+      DistanceB();
+
+      // Move the robot forward
+      motorSpeedA = baseSpeed;
+      motorSpeedB = baseSpeed;
+      motorA_pwm.write(motorSpeedA);
+      motorB_pwm.write(motorSpeedB);
+
+      // Update the total average distance
+      totalAvgDistance += avgDistance;
+
+      // Update remaining distance
+      remainingDistance = targetDistance - avgDistance;
+
+      // Debugging information
+      Debug("Total Average Distance: ", false);
+      DebugLn(String(totalAvgDistance), false);
+      Debug("Remaining Distance: ", false);
+      DebugLn(String(remainingDistance), false);
+
+      // Sleep to avoid blocking other operations
+      ThisThread::sleep_for(20ms);
+    }
+  }
+  // Stop the robot after reaching the target distance
+  brake();
+
+  DebugLn("Target distance reached, stopping.", false);
+}
+
+
+void alignFront() {
 
   Serial.print("Sensor F1 Distance: ");
   Serial.print(distance_F1);
@@ -1888,15 +1757,11 @@ void AlignFront() {
   if (distance_F1 > distance_F2) {
     volatile float TurnAngle = (atan2(distance_F1 - distance_F2, 9) * (180.0 / PI));
     TurnRightAngle(TurnAngle);
-    Serial.print("Angle: ");
-    Serial.println(TurnAngle);
     Debug("Angle: ", false);
     DebugLn(String(TurnAngle), false);
   } else if (distance_F1 < distance_F2) {
     volatile float TurnAngle = (atan2(distance_F2 - distance_F1, 9) * (180.0 / PI));
     TurnLeftAngle(TurnAngle);
-    Serial.print("Angle: ");
-    Serial.println(TurnAngle);
     Debug("Angle: ", false);
     DebugLn(String(TurnAngle), false);
   } else {  // If both distances are equal
@@ -2093,15 +1958,17 @@ void brake() {
   motorA_pwm.write(0);
   motorB_pwm.write(0);
   Serial.println("Motors stopped.");
-  Moving = false;
 }
 
 void DistanceA() {
   distanceA = pulseCountDisA * distancePerPulseA;  // Distance for Motor A
+  distanceA2 = pulseCountDisA * distancePerPulseA;  // finsihgridspace
 }
 
 void DistanceB() {
   distanceB = pulseCountDisB * distancePerPulseB;  // Distance for Motor B
+    distanceB2 = pulseCountDisB * distancePerPulseB;  // finsihgridspace
+
 }
 
 void reset() {
@@ -2179,7 +2046,6 @@ void equalizeMotor() {
 
 void turnninetyleft() {
   Serial.println(" Start turn");
-  Moving = true;
   TurnCheck = true;
 
   left();  // Set the motors to move forward
@@ -2268,6 +2134,8 @@ void turnninetyright() {
   robotDir = (robotDir + 1) % 4;  // Update direction by +1 (mod 4)
   TurnCheck = false;
   Serial.println("Turned Right 90");
+  reset();
+  delay(10);
 }
 
 void turnfourtyfiveleft() {
@@ -2355,7 +2223,6 @@ void turnfourtyfiveright() {
 
   Serial.println("Turned Right 45");
 }
-
 
 void turn180() {
   turnninetyleft();
@@ -2462,8 +2329,8 @@ void moveten() {
 
 void moveforward() {
   // Assuming each move is 5 cm, which is 1 grid cell.
-  float gridSize = 0.05;  // Grid size is 5 cm (adjust if necessary)
-
+  //float gridSize = 0.05;  // Grid size is 5 cm (adjust if necessary)
+  TurnCheck = false;
 
   // Reset pulse counts and distance for both motors
   pulseCountDisA = 0;
@@ -2496,11 +2363,11 @@ void moveforward() {
   // Stop the motors after moving the grid size
   brake();
   Serial.println("Stopped after moving 5 cm (1 grid cell)");
-
+  /*
   //Update the robot's position and the maze
-  // robotX += dx(robotDir);  // Update X position based on direction
-  //robotY += dy(robotDir);  // Update Y position based on direction
-
+  robotX += dx(robotDir);  // Update X position based on direction
+  robotY += dy(robotDir);  // Update Y position based on direction
+*/
   // Update the maze based on sensor data
   // updateMazeMap();
   // displayMazeMap();  // Optional: display the updated maze
@@ -2534,7 +2401,7 @@ void moveForwardt(int numCells) {
     DistanceB();
 
     // If the robot moves at least 1 grid space, update position
-    if (distanceA >= gridSize && distanceB >= gridSize) {
+    /*if (distanceA >= gridSize && distanceB >= gridSize) {
       robotX += dx(robotDir); //POSSIBLE
       robotY += dy(robotDir);
 
@@ -2552,7 +2419,7 @@ void moveForwardt(int numCells) {
 
       // Update the maze with sensor data
       checkSensorsAndUpdateMaze();
-    }
+    }*/
 
     // Stop early if an obstacle is detected
     if (wallAhead()) {
@@ -2594,7 +2461,7 @@ void moveForward(int numCells) {
     DistanceB();
 
     // If the robot moves at least one grid cell (5 cm), update position
-    if (distanceA >= gridSize && distanceB >= gridSize) {
+    /*if (distanceA >= gridSize && distanceB >= gridSize) {
       // Update grid count and total distance travelled
       gridsMoved++;
       totalDistanceTravelled += gridSize;
@@ -2623,7 +2490,7 @@ void moveForward(int numCells) {
 
       // Update the maze with sensor data
       checkSensorsAndUpdateMaze();
-    }
+    }*/
 
     // Stop early if an obstacle is detected
     if (wallAhead()) {
@@ -2643,7 +2510,6 @@ void moveForward(int numCells) {
   Serial.print("Final total distance travelled (cm): ");
   Serial.println(totalDistanceTravelled * 100);
 }
-
 
 void moveForwardContinuous() {
   float gridSize = 0.05;  // 5 cm per grid cell
@@ -2668,7 +2534,7 @@ void moveForwardContinuous() {
     DistanceA();
     DistanceB();
 
-    float avgDistance = (distanceA + distanceB) / 2.0;
+    /*float avgDistance = (distanceA + distanceB) / 2.0;
 
     // Check if the robot has moved 1 grid space
     //if (distanceA >= gridSize && distanceB >= gridSize) {
@@ -2691,7 +2557,7 @@ void moveForwardContinuous() {
 
       // Optionally, check sensors and update maze
       checkSensorsAndUpdateMaze();
-    }
+    }*/
 
     // Safety stop condition (e.g., obstacle detected)
     if (wallAhead()) {
@@ -2703,10 +2569,6 @@ void moveForwardContinuous() {
     }
   }
 }
-
-
-
-
 
 void moveback() {
   reverse();  // Set the motors to move
@@ -2964,9 +2826,6 @@ void checknmove() {
 }
 
 
-
-
-
 void checkSensorsAndUpdateMazeT() {
   // Sensor threshold for detecting walls
   float Threshold = 50.0;     // Adjust as per environment (in cm)
@@ -3182,22 +3041,22 @@ void processCommand(char command) {
   } else if (command == 'p') {
     checkSensorsAndUpdateMaze();
     updateMazeMap();
+    smartMapUnknowns();
     displayMazeMap();
-    //sendSensorData();
     displayMazeMapOverBLE();
   } else if (command == 'c') {
     motorA_pwm.write(motorSpeedA);
     motorB_pwm.write(motorSpeedB);
     motorSpeedA = 0.3;
     motorSpeedB = 0;
-  } else if (command == 't') {
-    checknmove();
+  } else if (command == 'f') {
+    finishGridSpace();
   } else if (command == 'o') {
     turn180();
   } else if (command == 'k') {
     maintainDistancefromRightWall();
   } else if (command == 'y') {
-    AlignFront();
+    alignFront();
   } else if (command >= '1' && command <= '9') {  // If command is a digit (1-9)
     int numCells = command - '0';                 // Convert char to integer
     Serial.print("Moving forward by ");
