@@ -1,13 +1,10 @@
 #include <mbed.h>
 #include <ArduinoBLE.h>
+#include <iostream>
 #include <vector>
 #include <queue>
 #include <climits>
-//#include <iostream>
 
-using namespace std;
-using namespace rtos;
-using namespace mbed;
 
 //Bluetooth--------------------------------------------------------------------------
 BLEService uartService("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");  // Nordic UART Service (NUS)
@@ -23,6 +20,9 @@ int VerboseEnabled = 1;
 
 //----------------------------------------------------------------------------------
 
+using namespace std;
+using namespace rtos;
+using namespace mbed;
 
 //Sensors----------------------------------------------------------------------------
 // I2C multiplexer and sensor addresses
@@ -97,11 +97,11 @@ volatile float motorSpeedReadB = 0.0;  // Motor B speed measured in RPM
 // Total distance traveled by each motor
 volatile float distanceA = 0.0;
 volatile float distanceB = 0.0;
-volatile float distanceA2 = 0.0;
-volatile float distanceB2 = 0.0;
+volatile float distanceA2 = 0.0;  //Finishgrid
+volatile float distanceB2 = 0.0;  //Finishgrid
 
-volatile float avgDistance = (distanceA + distanceB) / 2.0;
-//volatile float avgDistance2 = (distanceA2 + distanceB2) / 2.0;
+//volatile float avgDistance = (distanceA + distanceB) / 2.0;
+volatile float avgDistance2 = (distanceA2 + distanceB2) / 2.0;
 
 
 // Encoder pulses per revolution (adjust to match your encoder's spec)
@@ -199,15 +199,17 @@ void measureAverageDistance() {
 
       DistanceA();
       DistanceB();
-      //float avgDistance = (distanceA + distanceB) / 2.0;
+      float avgDistance = (distanceA + distanceB) / 2.0;
+      float avgDistance2 = (distanceA2 + distanceB2) / 2.0;
 
       totalAvgDistance += avgDistance;
-
+      //totalAvgDistance2 += avgDistance2;
       /*
       Serial.print("Avg Distance: ");
       Serial.println(avgDistance);
 */
       if (avgDistance >= gridSize) {
+
         // Update position
         robotX += dx(robotDir);
         robotY += dy(robotDir);
@@ -349,7 +351,8 @@ void printMazeWithPath(int endX, int endY) {
   }
 }
 
-/*struct Node {
+/*
+struct Node {
   int x, y, cost;
   Node(int _x, int _y, int _cost)
     : x(_x), y(_y), cost(_cost) {}
@@ -406,8 +409,8 @@ void printMazePath(const vector<pair<int, int>>& path) {
     }
     cout << endl;
   }
-}
-*/
+}*/
+
 //----------------------------------------------------------------------------------
 
 
@@ -750,6 +753,15 @@ void displayMazeMapOverBLE() {
 }
 
 void updateMazeMap() {
+  // Clear old robot positions
+  for (int y = 0; y < mazeHeight; y++) {
+    for (int x = 0; x < mazeWidth; x++) {
+      if (mazeMap[y][x] == 3 || mazeMap[y][x] == 2) {
+        mazeMap[y][x] = 0;  // Mark as free space
+      }
+    }
+  }
+
   // Mark all the cells occupied by the robot as empty (0)
   //for (int i = 0; i < robotHeight; i++) {
   //for (int j = 0; j < robotWidth; j++) {
@@ -763,11 +775,11 @@ void updateMazeMap() {
       if (surroundingX >= 0 && surroundingX < mazeWidth && surroundingY >= 0 && surroundingY < mazeHeight) {
         mazeMap[surroundingY][surroundingX] = 3;  // Robot
 
-        Serial.print("Marked grid at (");
+        /*Serial.print("Marked grid at (");
         Serial.print(surroundingX);
         Serial.print(", ");
         Serial.print(surroundingY);
-        Serial.println(") as empty.");
+        Serial.println(") as empty.");*/
       }
     }
   }
@@ -843,7 +855,7 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
 
   // Process the front-left sensor (F1)
   if (distance_F1 < Threshold) {
-    Serial.print(distance_F1);
+    //Serial.print(distance_F1);
     Serial.println("Wall detected by F1.");
     processSensorData(distance_F1, F1_startX, F1_startY, forwardDx, forwardDy, true);
   } else {
@@ -853,7 +865,7 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
 
   // Process the front-right sensor (F2)
   if (distance_F2 < Threshold) {
-    Serial.print(distance_F2);
+    //Serial.print(distance_F2);
     Serial.println("Wall detected by F2.");
     processSensorData(distance_F2, F2_startX, F2_startY, forwardDx, forwardDy, true);
   } else {
@@ -862,7 +874,7 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
   }
 
   if (distance_R1 < Threshold) {
-    Serial.print(distance_R1);
+    //Serial.print(distance_R1);
     Serial.println("Wall detected by R1.");
     processSensorData(distance_R1, R1_startX, R1_startY, rightDx, rightDy, true);
   } else {
@@ -872,7 +884,7 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
 
   // Process the right sensor (R)
   if (distance_R2 < Threshold) {
-    Serial.print(distance_R2);
+    //Serial.print(distance_R2);
     Serial.println("Wall detected by R2.");
     processSensorData(distance_R2, R2_startX, R2_startY, rightDx, rightDy, true);
   } else {
@@ -882,7 +894,7 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
 
   // Process the left sensor (L)
   if (distance_L < Threshold) {
-    Serial.print(distance_L);
+    //Serial.print(distance_L);
     Serial.println("Wall detected by L.");
     processSensorData(distance_L, L_startX, L_startY, leftDx, leftDy, true);
   } else {
@@ -892,21 +904,19 @@ void checkSensorsAndUpdateMaze() {  //scans surroundings using sensors
 
   Serial.print("Front 1 Sensor Distance: ");
   Serial.print(distance_F1);
-  Serial.println(" cm");
+  Serial.print(" cm | ");
 
   Serial.print("Front 2 Sensor Distance: ");
   Serial.print(distance_F2);
-  Serial.println(" cm");
-
-
+  Serial.print(" cm | ");
 
   Serial.print("Right 1 Sensor Distance: ");
   Serial.print(distance_R1);
-  Serial.println(" cm");
+  Serial.print(" cm | ");
 
   Serial.print("Right 2 Sensor Distance: ");
   Serial.print(distance_R2);
-  Serial.println(" cm");
+  Serial.print(" cm | ");
 
   Serial.print("Left Sensor Distance: ");
   Serial.print(distance_L);
@@ -1217,7 +1227,7 @@ void setStartPosition(int startX, int startY) {
 
 void alignRobot() {
   // Step 1: Align to the front (5 cm from the front wall)
-  //alignFrontt();
+  alignFrontt();
 
   // Step 2: Turn 90 degrees right
   turnfourtyfiveright();
@@ -1226,7 +1236,7 @@ void alignRobot() {
 
   turnfourtyfiveright();
   // Step 3: Align to the new front (after turning, it is the previous right side)
-  //alignFrontt();
+  alignFrontt();
 
   // Step 4: Turn 90 degrees right again
   turnfourtyfiveright();
@@ -1236,7 +1246,7 @@ void alignRobot() {
   turnfourtyfiveright();
 }
 
-/*void alignFrontt() {
+void alignFrontt() {
 
   // First, check the distance to the front wall
   while (distance_F1 > 0.10) {  // If the front sensor is further than 5 cm, move forward
@@ -1692,7 +1702,7 @@ void alignFrontWithTwoSensorsT() {
       break;
     }
   }
-}*/
+}
 
 void maintainDistancefromRightWall() {
   const float targetDistance = 5.0;     // Desired distance from the wall in
@@ -1809,7 +1819,16 @@ void finishGridSpace() {
   const float distanceTolerance = 0.2;  // Tolerance for completion (in cm)
   const float baseSpeed = 0.3;          // Base motor speed
 
+  float avgDistance2 = (distanceA2 + distanceB2) / 2.0;
   float remainingDistance = targetDistance - avgDistance2;  // Remaining distance to cover
+
+  Debug("avgDis: ", false);
+  DebugLn(String(avgDistance2), false);
+  Debug("DistanceA2: ", false);
+  DebugLn(String(distanceA2), false);
+  Debug("DistanceB2: ", false);
+  DebugLn(String(distanceB2), false);
+
 
   // If the robot is already within tolerance of the target distance
   if (remainingDistance <= distanceTolerance) {
@@ -1828,14 +1847,14 @@ void finishGridSpace() {
       motorB_pwm.write(motorSpeedB);
 
       // Update the total average distance
-      //totalAvgDistance += avgDistance;
+      //totalAvgDistance2 += avgDistance2;
 
       // Update remaining distance
-      remainingDistance = targetDistance - avgDistance2;
+      //remainingDistance = targetDistance - avgDistance2;
 
       // Debugging information
-      Debug("Total Average Distance: ", false);
-      DebugLn(String(totalAvgDistance), false);
+      //Debug("Total Average Distance: ", false);
+      //DebugLn(String(totalAvgDistance2), false);
       Debug("Remaining Distance: ", false);
       DebugLn(String(remainingDistance), false);
 
@@ -2072,13 +2091,13 @@ void brake() {
 }
 
 void DistanceA() {
-  distanceA = pulseCountDisA * distancePerPulseA;   // Distance for Motor A
-  distanceA2 = pulseCountDisA * distancePerPulseA;  // finsihgridspace
+  distanceA = pulseCountDisA * distancePerPulseA;    // Distance for Motor A
+  distanceA2 = pulseCountDisA2 * distancePerPulseA;  // finsihgridspace
 }
 
 void DistanceB() {
-  distanceB = pulseCountDisB * distancePerPulseB;   // Distance for Motor B
-  distanceB2 = pulseCountDisB * distancePerPulseB;  // finsihgridspace
+  distanceB = pulseCountDisB * distancePerPulseB;    // Distance for Motor B
+  distanceB2 = pulseCountDisB2 * distancePerPulseB;  // finsihgridspace
 }
 
 void reset() {
@@ -2198,8 +2217,6 @@ void turnninetyleft() {
   robotDir = (robotDir - 1 + 4) % 4;  // Update direction by -1 (mod 4)
   TurnCheck = false;
   Serial.println("Turned Left 90");
-  reset();
-  delay(10);
 }
 
 void turnninetyright() {
@@ -2475,11 +2492,11 @@ void moveforward() {
   // Stop the motors after moving the grid size
   brake();
   Serial.println("Stopped after moving 5 cm (1 grid cell)");
-  /*
+
   //Update the robot's position and the maze
-  robotX += dx(robotDir);  // Update X position based on direction
-  robotY += dy(robotDir);  // Update Y position based on direction
-*/
+  //robotX += dx(robotDir);  // Update X position based on direction
+  //robotY += dy(robotDir);  // Update Y position based on direction
+
   // Update the maze based on sensor data
   // updateMazeMap();
   // displayMazeMap();  // Optional: display the updated maze
@@ -2938,7 +2955,7 @@ void checknmove() {
 }
 
 
-/*void checkSensorsAndUpdateMazeT() {
+void checkSensorsAndUpdateMazeT() {
   // Sensor threshold for detecting walls
   float Threshold = 50.0;     // Adjust as per environment (in cm)
   int maxDistanceCells = 10;  // Maximum grid cells to mark free
@@ -2991,7 +3008,7 @@ void checknmove() {
   }
 }
 
-void checkSensorsAndUpdateMaze() {
+/*void checkSensorsAndUpdateMaze() {
 
   float minDistanceThresholdLeft = 15.0;  // in cm
 
@@ -3133,8 +3150,7 @@ void processCommand(char command) {
   } else if (command == 'g') {
     moveforward();
   } else if (command == 'n') {
-    dijkstra(startX, startY, endX, endY);
-    printMazeWithPath(endX, endY);
+    checksensorscheck();
   } else if (command == 'u') {
     motorA_up();
     motorB_up();
