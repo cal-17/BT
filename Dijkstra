@@ -16,7 +16,7 @@ struct Node {
 };
 
 // Example maze (0 = open path, 1 = wall) ensuring 3x3 clearance for the robot
-int maze[HEIGHT][WIDTH] = {
+int mazeMap[HEIGHT][WIDTH] = {
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -57,14 +57,15 @@ int maze[HEIGHT][WIDTH] = {
 int dist[HEIGHT][WIDTH];
 pair<int, int> prevNode[HEIGHT][WIDTH];
 
-int dx[] = { -1, 1, 0, 0 };  // Up, Down, Left, Right
-int dy[] = { 0, 0, -1, 1 };
+int dijkstra_dx[] = { -1, 1, 0, 0 };  // Up, Down, Left, Right 
+int dijkstra_dy[] = { 0, 0, -1, 1 };
+
 
 /*bool hasClearance(int x, int y) {  //3x3
   for (int i = -1; i <= 1; i++) {
     for (int j = -1; j <= 1; j++) {
       int nx = x + i, ny = y + j;
-      if (nx < 0 || ny < 0 || nx >= HEIGHT || ny >= WIDTH || maze[nx][ny] == 1) {
+      if (nx < 0 || ny < 0 || nx >= HEIGHT || ny >= WIDTH || mazeMap[nx][ny] == 1) {
         return false;  // Obstacle or out of bounds
       }
     }
@@ -76,7 +77,7 @@ bool hasClearance(int x, int y) {   //5x5
     for (int i = -2; i <= 2; i++) {   
         for (int j = -2; j <= 2; j++) {
             int nx = x + i, ny = y + j;
-            if (nx < 0 || ny < 0 || nx >= HEIGHT || ny >= WIDTH || maze[nx][ny] == 1) {
+            if (nx < 0 || ny < 0 || nx >= HEIGHT || ny >= WIDTH || mazeMap[nx][ny] == 1) {
                 return false;  // Obstacle or out of bounds
             }
         }
@@ -109,8 +110,8 @@ void dijkstra(int startX, int startY, int endX, int endY) {
     if (x == endX && y == endY) break;
 
     for (int i = 0; i < 4; i++) {
-      int nx = x + dx[i], ny = y + dy[i];
-      //if (nx >= 0 && ny >= 0 && nx < HEIGHT && ny < WIDTH && maze[nx][ny] == 0) {
+      int nx = x + dijkstra_dx[i], ny = y + dijkstra_dy[i];
+      //if (nx >= 0 && ny >= 0 && nx < HEIGHT && ny < WIDTH && mazeMap[nx][ny] == 0) {
       if (nx >= 1 && ny >= 1 && nx < HEIGHT - 1 && ny < WIDTH - 1 && hasClearance(nx, ny)) {
         int newCost = dist[x][y] + 1;
         if (newCost < dist[nx][ny]) {
@@ -130,7 +131,7 @@ void printMazeWithPath(int endX, int endY) {
   // Copy maze to displayMaze
   for (int i = 0; i < HEIGHT; i++) {
     for (int j = 0; j < WIDTH; j++) {
-      displayMaze[i][j] = (maze[i][j] == 1) ? '#' : '.';
+      displayMaze[i][j] = (mazeMap[i][j] == 1) ? '#' : '.';
     }
   }
 
@@ -165,7 +166,7 @@ void setup() {
 }
 
 void loop() {
-  int startX = 2, startY = 2, endX = 32, endY = 39;
+int startX = 4, startY = 40, endX = 2, endY = 2;
   dijkstra(startX, startY, endX, endY);
   printMazeWithPath(endX, endY);
   while (true)
