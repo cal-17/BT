@@ -937,6 +937,17 @@ void smartMapUnknowns() {
           mazeMap[y][x] = 1;  // Mark as wall
           clearPathToWall(robotX, robotY, x, y);
         }
+        // Check if the unknown cell is between two free spaces (0) within a 4-cell range from the robot
+        if (abs(robotX - x) <= 4) {  // Check horizontal range
+          if (mazeMap[y][x - 1] == 0 && mazeMap[y][x + 1] == 0) {
+            mazeMap[y][x] = 0;  // Mark as free space
+          }
+        }
+        if (abs(robotY - y) <= 4) {  // Check vertical range
+          if (mazeMap[y - 1][x] == 0 && mazeMap[y + 1][x] == 0) {
+            mazeMap[y][x] = 0;  // Mark as free space
+          }
+        }
       }
     }
   }
@@ -1154,7 +1165,7 @@ void setup() {
       ;
   }
 
-  BLE.setLocalName("Cal-BT");
+  BLE.setLocalName("Theseus");
   BLE.setAdvertisedService(uartService);
 
   uartService.addCharacteristic(txCharacteristic);
