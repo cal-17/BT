@@ -3,14 +3,8 @@
 #include <queue>
 #include <limits>
 
-//#define WIDTH 45
-//#define HEIGHT 35
-
-const int mazeWIDTH = 45;   //29
-const int mazeHEIGHT = 35;  //40
-int robotDir = 0;           // 0= Up-North, 1= Right-East, 2= Down-South, 3= Left-West
-int startX = 25, startY = 2, endX = 2, endY = 2;
-
+#define WIDTH 45
+#define HEIGHT 35
 
 using namespace std;
 
@@ -20,9 +14,10 @@ struct Node {
     return cost > other.cost;
   }
 };
+  int startX = 2, startY = 2, endX = 32, endY = 42;
 
-// Example maze (0 = open path, 1 = wall) ensuring 3x3 clearance for the robot
-int mazeMap[mazeHEIGHT][mazeWIDTH] = {
+// Example maze (0 = open path, 1 = wall)
+int maze[HEIGHT][WIDTH] = {
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -60,18 +55,18 @@ int mazeMap[mazeHEIGHT][mazeWIDTH] = {
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-int dist[mazeHEIGHT][mazeWIDTH];
-pair<int, int> prevNode[mazeHEIGHT][mazeWIDTH];
+int dist[HEIGHT][WIDTH];
+pair<int, int> prevNode[HEIGHT][WIDTH];
 
-int dijkstra_dx[] = { -1, 1, 0, 0 };  // Up, Down, Left, Right
-int dijkstra_dy[] = { 0, 0, -1, 1 };
+int dx[] = { -1, 1, 0, 0 };  // Up, Down, Left, Right
+int dy[] = { 0, 0, -1, 1 };
 
 
 bool hasClearance(int x, int y) {  //3x3
   for (int i = -1; i <= 1; i++) {
     for (int j = -1; j <= 1; j++) {
       int nx = x + i, ny = y + j;
-      if (nx < 0 || ny < 0 || nx >= mazeHEIGHT || ny >= mazeWIDTH || mazeMap[nx][ny] == 1) {
+      if (nx < 0 || ny < 0 || nx >= HEIGHT || ny >= WIDTH || maze[nx][ny] == 1) {
         return false;  // Obstacle or out of bounds
       }
     }
@@ -83,7 +78,7 @@ bool hasClearance(int x, int y) {  //3x3
     for (int i = -2; i <= 2; i++) {   
         for (int j = -2; j <= 2; j++) {
             int nx = x + i, ny = y + j;
-            if (nx < 0 || ny < 0 || nx >= mazeHEIGHT || ny >= mazeWIDTH || mazeMap[nx][ny] == 1) {
+            if (nx < 0 || ny < 0 || nx >= HEIGHT || ny >= WIDTH || maze[nx][ny] == 1) {
                 return false;  // Obstacle or out of bounds
             }
         }
@@ -91,18 +86,13 @@ bool hasClearance(int x, int y) {  //3x3
     return true;
 }*/
 
-
-
 void dijkstra(int startX, int startY, int endX, int endY) {
-  for (int i = 0; i < mazeHEIGHT; i++) {
-    for (int j = 0; j < mazeWIDTH; j++) {
+  for (int i = 0; i < HEIGHT; i++) {
+    for (int j = 0; j < WIDTH; j++) {
       dist[i][j] = numeric_limits<int>::max();
       prevNode[i][j] = { -1, -1 };
     }
   }
-
-  Serial.println("IN LOOP");
-
 
   priority_queue<Node, vector<Node>, greater<Node>> pq;
   pq.push({ startX, startY, 0 });
@@ -116,9 +106,10 @@ void dijkstra(int startX, int startY, int endX, int endY) {
     if (x == endX && y == endY) break;
 
     for (int i = 0; i < 4; i++) {
-      int nx = x + dijkstra_dx[i], ny = y + dijkstra_dy[i];
-      //if (nx >= 0 && ny >= 0 && nx < HEIGHT && ny < WIDTH && mazeMap[nx][ny] == 0) {
-      if (nx >= 1 && ny >= 1 && nx < mazeHEIGHT - 1 && ny < mazeWIDTH - 1 && hasClearance(nx, ny)) {
+      int nx = x + dx[i], ny = y + dy[i];
+            if (nx >= 0 && ny >= 0 && nx < HEIGHT && ny < WIDTH && hasClearance(nx, ny)) {
+
+      //if (nx >= 0 && ny >= 0 && nx < HEIGHT && ny < WIDTH && maze[nx][ny] == 0) {
         int newCost = dist[x][y] + 1;
         if (newCost < dist[nx][ny]) {
           dist[nx][ny] = newCost;
@@ -128,26 +119,24 @@ void dijkstra(int startX, int startY, int endX, int endY) {
       }
     }
   }
-  Serial.println("Path calculated.");
 }
 
-
-
-void printMazeWithPath(int startX, int startY, int endX, int endY) {
-  char displayMaze[mazeHEIGHT][mazeWIDTH];
+void printMazeWithPath(int endX, int endY) {
+  char displayMaze[HEIGHT][WIDTH];
 
   // Copy maze to displayMaze
-  for (int y = 0; y < mazeHEIGHT; y++) {
-    for (int x = 0; x < mazeWIDTH; x++) {
-      if (mazeMap[y][x] == 1) {
-        displayMaze[y][x] = 'W';  // Wall
-      } else if (mazeMap[y][x] == -1) {
-        displayMaze[y][x] = '#';  // Unknown space
+  for (int i = 0; i < HEIGHT; i++) {
+    for (int j = 0; j < WIDTH; j++) {
+      if (maze[i][j] == 1) {
+        displayMaze[i][j] = 'W';  // Wall
+      } else if (maze[i][j] == -1) {
+        displayMaze[i][j] = '#';  // Unknown space
       } else {
-        displayMaze[y][x] = '.';  // Open space
+        displayMaze[i][j] = '.';  // Open space
       }
     }
   }
+
 
   // Mark the path
   vector<pair<int, int>> path;
@@ -164,44 +153,16 @@ void printMazeWithPath(int startX, int startY, int endX, int endY) {
   displayMaze[startY][startX] = 'S';  // Start Position
   displayMaze[endY][endX] = 'E';      // End Position
 
-  // Preserve the robot's position and direction
-  for (int y = 0; y < mazeHEIGHT; y++) {
-    for (int x = 0; x < mazeWIDTH; x++) {
-      if (mazeMap[y][x] == 3) {
-        displayMaze[y][x] = 'R';  // Robot body
-      } else if (mazeMap[y][x] == 2) {
-        // Represent the robot's center with directional arrows and directions in words
-        if (robotDir == 0) {
-          displayMaze[y][x] = '↑';  // Facing Up
-          Serial.println("Robot is facing Up");
-        } else if (robotDir == 1) {
-          displayMaze[y][x] = '→';  // Facing Right
-          Serial.println("Robot is facing Right");
-        } else if (robotDir == 2) {
-          displayMaze[y][x] = '↓';  // Facing Down
-          Serial.println("Robot is facing Down");
-        } else if (robotDir == 3) {
-          displayMaze[y][x] = '←';  // Facing Left
-          Serial.println("Robot is facing Left");
-        }
-      }
-    }
-  }
-
-  // Print the maze with the marked path
+  // Print the maze
   Serial.println("Maze with Shortest Path:");
-  for (int y = 0; y < mazeHEIGHT; y++) {
-    for (int x = 0; x < mazeWIDTH; x++) {
-
-      
-      Serial.print(displayMaze[y][x]);
+  for (int i = 0; i < HEIGHT; i++) {
+    for (int j = 0; j < WIDTH; j++) {
+      Serial.print(displayMaze[i][j]);
       Serial.print(" ");
     }
     Serial.println();
   }
-  Serial.println();  // Extra newline for readability
 }
-
 
 void setup() {
   Serial.begin(9600);
@@ -211,294 +172,8 @@ void setup() {
 }
 
 void loop() {
-  int startX = 25, startY = 32, endX = 2, endY = 2;
-
   dijkstra(startX, startY, endX, endY);
-  printMazeWithPath(startX, startY, endX, endY);
-  
+  printMazeWithPath(endX, endY);
   while (true)
     ;  // Stop execution after running once
 }
-
-/*void dijkstra(int startX, int startY, int endX, int endY) {
-  priority_queue<Node, vector<Node>, greater<Node>> pq;
-  pq.push({ startX, startY, 0 });
-  Serial.println("IN LOOP");
-
-  while (!pq.empty()) {
-    Node current = pq.top();
-    pq.pop();
-    int x = current.x, y = current.y;
-
-    if (x == endX && y == endY) break;
-
-    for (int i = -1; i <= 1; i++) {
-      for (int j = -1; j <= 1; j++) {
-        int nx = x + i, ny = y + j;
-        if (nx >= 1 && ny >= 1 && nx < HEIGHT - 1 && ny < WIDTH - 1 && hasClearance(nx, ny)) {
-          pq.push({ nx, ny, current.cost + 1 });
-        }
-      }
-    }
-  }
-}*/
-
-/*
-void printMazeWithPath(int endX, int endY) {
-  char displayMaze[mazeHEIGHT][mazeWIDTH];
-
-  // Copy maze to displayMaze
-  for (int y = 0; y < mazeHEIGHT; y++) {
-    for (int x = 0; x < mazeWIDTH; x++) {
-      if (mazeMap[y][x] == 1) {
-        displayMaze[y][x] = 'W';  // Wall
-      } else if (mazeMap[y][x] == -1) {
-        displayMaze[y][x] = '#';  // Unknown space
-      } else {
-        displayMaze[y][x] = '.';  // Open space
-      }
-    }
-  }
-
-  // Mark start and end
-  displayMaze[startY][startX] = 'S';  // Start Position
-  displayMaze[endY][endX] = 'E';      // End Position
-
-  // Mark the path
-  vector<pair<int, int>> path;
-  for (pair<int, int> at = { endX, endY }; at.first != -1; at = prevNode[at.first][at.second]) {
-    path.push_back(at);
-  }
-  reverse(path.begin(), path.end());
-
-  for (auto p : path) {
-    displayMaze[p.first][p.second] = 'P';
-  }
-
-  // Print the maze
-  Serial.println("Maze with Shortest Path:");
-  for (int i = 0; i < mazeHEIGHT; i++) {
-    for (int j = 0; j < mazeWIDTH; j++) {
-      Serial.print(displayMaze[i][j]);
-      Serial.print(" ");
-    }
-    Serial.println();
-  }
-}*/
-/*
-#include "mbed.h"
-#include <vector>
-#include <queue>
-#include <limits>
-
-#define WIDTH 7
-#define HEIGHT 7
-
-using namespace std;
-
-struct Node {
-    int x, y, cost;
-    bool operator>(const Node &other) const {
-        return cost > other.cost;
-    }
-};
-
-// Example maze (0 = open path, 1 = wall)
-int maze[HEIGHT][WIDTH] = {
-    {0, 0, 0, 0, 1, 0, 0},
-    {1, 1, 1, 0, 1, 0, 1},
-    {0, 0, 0, 0, 0, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1},
-    {0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 0, 1, 1, 1},
-    {0, 0, 0, 0, 0, 0, 0}
-};
-
-int dist[HEIGHT][WIDTH];
-pair<int, int> prevNode[HEIGHT][WIDTH];
-
-int dx[] = {-1, 1, 0, 0}; // Up, Down, Left, Right
-int dy[] = {0, 0, -1, 1};
-
-void dijkstra(int startX, int startY, int endX, int endY) {
-    for (int i = 0; i < HEIGHT; i++) {
-        for (int j = 0; j < WIDTH; j++) {
-            dist[i][j] = numeric_limits<int>::max();
-            prevNode[i][j] = {-1, -1};
-        }
-    }
-
-    priority_queue<Node, vector<Node>, greater<Node>> pq;
-    pq.push({startX, startY, 0});
-    dist[startX][startY] = 0;
-
-    while (!pq.empty()) {
-        Node current = pq.top(); pq.pop();
-        int x = current.x, y = current.y;
-
-        if (x == endX && y == endY) break;
-
-        for (int i = 0; i < 4; i++) {
-            int nx = x + dx[i], ny = y + dy[i];
-            if (nx >= 0 && ny >= 0 && nx < HEIGHT && ny < WIDTH && maze[nx][ny] == 0) {
-                int newCost = dist[x][y] + 1;
-                if (newCost < dist[nx][ny]) {
-                    dist[nx][ny] = newCost;
-                    prevNode[nx][ny] = {x, y};
-                    pq.push({nx, ny, newCost});
-                }
-            }
-        }
-    }
-}
-
-void printMazeWithPath(int endX, int endY) {
-    char displayMaze[HEIGHT][WIDTH];
-    
-    // Copy maze to displayMaze
-    for (int i = 0; i < HEIGHT; i++) {
-        for (int j = 0; j < WIDTH; j++) {
-            displayMaze[i][j] = (maze[i][j] == 1) ? '#' : '.';
-        }
-    }
-
-    // Mark the path
-    vector<pair<int, int>> path;
-    for (pair<int, int> at = {endX, endY}; at.first != -1; at = prevNode[at.first][at.second]) {
-        path.push_back(at);
-    }
-    reverse(path.begin(), path.end());
-    
-    for (auto p : path) {
-        displayMaze[p.first][p.second] = 'P';
-    }
-
-    // Print the maze
-    Serial.println("Maze with Shortest Path:");
-    for (int i = 0; i < HEIGHT; i++) {
-        for (int j = 0; j < WIDTH; j++) {
-            Serial.print(displayMaze[i][j]);
-            Serial.print(" ");
-        }
-        Serial.println();
-    }
-}
-
-void setup() {
-    Serial.begin(9600);
-    while (!Serial);
-    Serial.println("Solving maze with Dijkstra's algorithm...");
-}
-
-void loop() {
-    int startX = 0, startY = 0, endX = 6, endY = 6;
-    dijkstra(startX, startY, endX, endY);
-    printMazeWithPath(endX, endY);
-    while (true); // Stop execution after running once
-}
-
-
-
-
-#include "mbed.h"
-#include <vector>
-#include <queue>
-#include <limits>
-
-#define WIDTH 7
-#define HEIGHT 7
-
-using namespace std;
-
-struct Node {
-    int x, y, cost;
-    bool operator>(const Node &other) const {
-        return cost > other.cost;
-    }
-};
-
-// Example maze (0 = open path, 1 = wall)
-int maze[HEIGHT][WIDTH] = {
-    {0, 0, 0, 0, 1, 0, 0},
-    {1, 1, 1, 0, 1, 0, 1},
-    {0, 0, 0, 0, 0, 0, 1},
-    {0, 1, 1, 1, 1, 1, 1},
-    {0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 0, 1, 1, 1},
-    {0, 0, 0, 0, 0, 0, 0}
-};
-
-int dist[HEIGHT][WIDTH];
-pair<int, int> prevNode[HEIGHT][WIDTH];
-
-int dx[] = {-1, 1, 0, 0}; // Up, Down, Left, Right
-int dy[] = {0, 0, -1, 1};
-
-void dijkstra(int startX, int startY, int endX, int endY) {
-    for (int i = 0; i < HEIGHT; i++) {
-        for (int j = 0; j < WIDTH; j++) {
-            dist[i][j] = numeric_limits<int>::max();
-            prevNode[i][j] = {-1, -1};
-        }
-    }
-
-    priority_queue<Node, vector<Node>, greater<Node>> pq;
-    pq.push({startX, startY, 0});
-    dist[startX][startY] = 0;
-
-    while (!pq.empty()) {
-        Node current = pq.top(); pq.pop();
-        int x = current.x, y = current.y;
-
-        if (x == endX && y == endY) break;
-
-        for (int i = 0; i < 4; i++) {
-            int nx = x + dx[i], ny = y + dy[i];
-            if (nx >= 0 && ny >= 0 && nx < HEIGHT && ny < WIDTH && maze[nx][ny] == 0) {
-                int newCost = dist[x][y] + 1;
-                if (newCost < dist[nx][ny]) {
-                    dist[nx][ny] = newCost;
-                    prevNode[nx][ny] = {x, y};
-                    pq.push({nx, ny, newCost});
-                }
-            }
-        }
-    }
-}
-
-void printPath(int endX, int endY) {
-    vector<pair<int, int>> path;
-    for (pair<int, int> at = {endX, endY}; at.first != -1; at = prevNode[at.first][at.second]) {
-        path.push_back(at);
-    }
-    reverse(path.begin(), path.end());
-
-    Serial.println("Shortest path:");
-    for (auto p : path) {
-        Serial.print("(");
-        Serial.print(p.first);
-        Serial.print(", ");
-        Serial.print(p.second);
-        Serial.print(") -> ");
-    }
-    Serial.println("END");
-}
-
-void setup() {
-    Serial.begin(9600);
-    Serial.println("Solving maze with Dijkstra's algorithm...");
-     while (!Serial);
-    Serial.println("Serial is working!");
-}
-
-
-void loop() {
-
-    Serial.println("Hello!");
-    delay(1000);
-    int startX = 0, startY = 0, endX = 6, endY = 6;
-    dijkstra(startX, startY, endX, endY);
-    printPath(endX, endY);
-    while (true); // Stop execution after running once
-}
-*/
