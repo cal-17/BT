@@ -1836,7 +1836,7 @@ void decisionMaker() {
     } else if (!wallAhead() && !gapOnRight()) {
       PrintOutLn("No wall ahead & NO gap on right -> Maintaining distance from right wall.", false);
       maintainDistancefromRightWall();
-    } if (wallAhead() || gapOnRight() || !forceStop) {
+    } if (!forceStop) {
       brake();
       //finishGridSpace();
       Serial.println("Obstacle detected! Stopping.");
