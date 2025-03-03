@@ -237,22 +237,17 @@ void checksensors() {
   while (runningSensors) {
     setMultiplexerBus(MUX_BUS_0);
     distance_F1 = readDistanceCM();
-    ThisThread::sleep_for(5ms);
 
     setMultiplexerBus(MUX_BUS_1);
     distance_F2 = readDistanceCM();
-    ThisThread::sleep_for(5ms);
 
     setMultiplexerBus(MUX_BUS_2);
     distance_R1 = readDistanceCM();
-    ThisThread::sleep_for(5ms);
 
     setMultiplexerBus(MUX_BUS_3);
     distance_R2 = readDistanceCM();
-    ThisThread::sleep_for(5ms);
 
     USDistance_L();
-    ThisThread::sleep_for(5ms);
   }
 }
 
@@ -260,19 +255,19 @@ void checksensors() {
 void checksensorscheck() {
   Serial.print("Front 1 Sensor Distance: ");
   PrintOut(String(distance_F1), false);
-  PrintOut(" F1 cm | ", false);
+  PrintOutLn(" F1 cm", false);
 
   Serial.print("Front 2 Sensor Distance: ");
   PrintOut(String(distance_F2), false);
-  PrintOut(" F2 cm | ", false);
+  PrintOutLn(" F2 cm", false);
 
   Serial.print("Right 1 Sensor Distance: ");
   PrintOut(String(distance_R1), false);
-  PrintOut(" R1 cm | ", false);
+  PrintOutLn(" R1 cm", false);
 
   Serial.print("Right 2 Sensor Distance: ");
   PrintOut(String(distance_R2), false);
-  PrintOut(" R2 cm | ", false);
+  PrintOutLn(" R2 cm", false);
 
   Serial.print("Left Sensor Distance: ");
   PrintOut(String(distance_L), false);
@@ -466,6 +461,9 @@ void equalizeMotor() {
 // Thread that checks for forward grid space movement updating the robots position
 void measureAverageDistance() {
   while (measureAvgDis) {
+    ThisThread::sleep_for(10ms);
+
+    //    Serial.println("In while");
     if (TurnCheck == false) {  // Only measure distance when not turning
 
 
@@ -477,13 +475,21 @@ void measureAverageDistance() {
       totalAvgDistance += avgDistance;  // Totalled average distance
 
 
-      if (avgDistance >= gridSize) {  // Travel Grid distance
+      //Serial.print("avgDistance: ");
+      //Serial.println(avgDistance);
 
+
+      if (avgDistance >= gridSize) {  // Travel Grid distance
+        //PrintOutLn("In avgDistanceIf", false);
+        //PrintOut("avgDistance: ", false);
+        //PrintOutLn(String(avgDistance), false);
+        //PrintOut("gridSize: ", false);
+        //PrintOutLn(String(gridSize), false);
         // Update position
         robotX += dx(robotDir);
         robotY += dy(robotDir);
         totalGridsMoved++;
-        Serial.println("Updated Position:");
+        /*Serial.println("Updated Position:");
         Serial.print("X: ");
         Serial.print(robotX);
         Serial.print(" Y: ");
@@ -500,7 +506,7 @@ void measureAverageDistance() {
         Serial.println(" cm");
         Serial.print("Distance Travelled A and B ");
         Serial.print(avgDistance * 100);
-        Serial.println("cm");
+        Serial.println("cm");*/
 
 
         // Reset distances
@@ -510,7 +516,7 @@ void measureAverageDistance() {
         distanceB = 0;
       }
     }
-    ThisThread::sleep_for(10ms);
+    //ThisThread::sleep_for(10ms);
   }
 }
 
@@ -527,10 +533,10 @@ void alignFront() {  //Function to align front making use of trig to calculate t
     Serial.print(distance_F2);
     Serial.println(" cm");
 
-    PrintOut("Sensor F1 Distance: ", false);
-    PrintOutLn(String(distance_F1), false);
-    PrintOut("Sensor F2 Distance: ", false);
-    PrintOutLn(String(distance_F2), false);
+    //PrintOut("Sensor F1 Distance: ", false);
+    //PrintOutLn(String(distance_F1), false);
+    //PrintOut("Sensor F2 Distance: ", false);
+    //PrintOutLn(String(distance_F2), false);
 
 
     if (distance_F1 > distance_F2) {
@@ -673,7 +679,7 @@ void TurnRightAngle(float TurnAngle) {  // Turns Angle into distance
 }
 
 void turnninetyleft() {
-  Serial.println(" Start turn");
+  PrintOut("Left Turn", false);
   TurnCheck = true;
 
   left();  // Set the motors to left
@@ -692,7 +698,7 @@ void turnninetyleft() {
   DistanceA();  // Update the distance for Motor A
   DistanceB();  // Update the distance for Motor B
 
-  while (distanceA < 0.073 && distanceB < 0.073) {
+  while (distanceA < 0.074 && distanceB < 0.074) {
     DistanceA();  // Update the distance for Motor A
     DistanceB();  // Update the distance for Motor B
 
@@ -714,7 +720,7 @@ void turnninetyleft() {
 }
 
 void turnninetyright() {
-  Serial.println(" Start turn");
+  PrintOut("Right Turn", false);
   TurnCheck = true;
 
   right();  // Set the motors right
@@ -733,7 +739,7 @@ void turnninetyright() {
   DistanceA();  // Update the distance for Motor A
   DistanceB();  // Update the distance for Motor B
 
-  while (distanceA < 0.073 && distanceB < 0.073) {
+  while (distanceA < 0.075 && distanceB < 0.075) {
     DistanceA();  // Update the distance for Motor A
     DistanceB();  // Update the distance for Motor B
 
@@ -794,10 +800,10 @@ void moveBack() {  // Move back one grid space
 
   ThisThread::sleep_for(50ms);
 }
-
+/*
 void moveForward(int numCells) {  // Move forward given number of grids
   //float gridSize = 0.05;                       // 5 cm per grid cell (in meters)
-  float targetDistance = numCells * gridSize;  // Total distance to move (in meters)
+  //float targetDistance = numCells * gridSize;  // Total distance to move (in meters)
   TurnCheck = false;
 
   int gridsMoved = 0;
@@ -820,22 +826,21 @@ void moveForward(int numCells) {  // Move forward given number of grids
   DistanceB();
 
   while (gridsMoved < numCells) {
-    DistanceA();
-    DistanceB();
-
     // Calculate the current average distance
-    float averageDistance = (distanceA + distanceB) / 2.0;
+    DistanceA();
+    DistanceB();    
+    avgDistance = (distanceA + distanceB) / 2.0;
+
 
     // Add to total distance travelled
-    totalAverageDistanceTravelled += (averageDistance - previousAverageDistance);
+    totalAverageDistanceTravelled += (avgDistance - previousAverageDistance);
 
     // Detect if the distance was reset (suggesting a grid was traversed)
-    if (averageDistance < previousAverageDistance) {
+    if (avgDistance >= gridSize) {
       gridsMoved++;
       Serial.print("Grid spaces moved: ");
       Serial.println(gridsMoved);
     }
-    // eging information (optional)
     Serial.print("Motor A distance: ");
     Serial.print(distanceA * 100);  // Convert to cm
     Serial.println(" cm");
@@ -844,11 +849,12 @@ void moveForward(int numCells) {  // Move forward given number of grids
     Serial.println(" cm");
 
     // Update previous distance for next loop iteration
-    previousAverageDistance = averageDistance;
+    previousAverageDistance = avgDistance;
 
     // Stop early if an obstacle is detected
     if (wallAhead()) {
       brake();
+      checksensorscheck();
       Serial.println("Obstacle detected! Stopping.");
       Serial.print("Total average distance travelled (cm): ");
       Serial.println(totalAverageDistanceTravelled * 100);
@@ -862,12 +868,54 @@ void moveForward(int numCells) {  // Move forward given number of grids
   Serial.println("Reached target distance. Stopping.");
 
   // Print total distance traveled
-  Serial.print("Final total average distance travelled (cm): ");
+  Serial.print("Final total average distance travelled: ");
   Serial.println(totalAverageDistanceTravelled * 100);
   ThisThread::sleep_for(20ms);
+}*/
+
+void moveForward(int numCells) {
+  PrintOut("Moving Forward: ", false);
+  PrintOutLn(String(numCells), false);
+  TurnCheck = false;
+  int startGridCount = totalGridsMoved;  // Get current grid count
+
+  // Start moving forward
+  forward();
+  motorSpeedA = 0.3;
+  motorSpeedB = 0.3;
+  equalizeMotor();
+
+  // Wait until enough grid spaces have been moved
+  while (totalGridsMoved < startGridCount + numCells) {
+    //  PrintOut(String("totalGridsMoved: "), false);
+    // PrintOutLn(String(totalGridsMoved), false);
+    // PrintOut(String("startGridCount: "), false);
+
+    //PrintOutLn(String(startGridCount), false);
+    // PrintOut(String("numCells: "), false);
+
+    //PrintOutLn(String(numCells), false);
+    // PrintOutLn("In while Forward", false);
+
+    if (wallAhead()) {
+      //PrintOutLn("In If Forward", false);
+      brake();
+      checksensorscheck();
+      Serial.println("Obstacle detected! Stopping.");
+      return;
+    }
+    ThisThread::sleep_for(5ms);  // Allow thread time to update totalGridsMoved
+  }
+
+  // Stop motors when done
+  brake();
+  Serial.println("Reached target distance. Stopping.");
+  PrintOut("Reached target distance.", false);
 }
 
-void maintainDistancefromRightWall() {                                      //Maintain Right distance from Wall as traveling
+
+void maintainDistancefromRightWall() {  //Maintain Right distance from Wall as traveling
+  PrintOut("Maintain Right", false);
   const float gridSizeCm = 5.0;                                             // Grid size in cm
   const float distanceTolerance = 0.01;                                     // Tolerance for maintaining distance
   const float adjustment = 0.05;                                            // Adjustment increment for motors
@@ -900,8 +948,8 @@ void maintainDistancefromRightWall() {                                      //Ma
     }
 
     // Default motor speeds
-    motorSpeedB = baseSpeed;
-    motorSpeedA = baseSpeed + 0.005;
+    motorSpeedB = baseSpeed + 0.028;
+    motorSpeedA = baseSpeed;
 
     //equalizeMotor();  // Balance the motors before starting control
 
@@ -930,9 +978,10 @@ void maintainDistancefromRightWall() {                                      //Ma
     }*/
 
     // --- Obstacle Detection and Stop Condition ---
-    if (wallAhead() || gapOnRight() || !forceStop) {
+    if (wallAhead() || gapOnRight()) {
       brake();
       //finishGridSpace();
+      checksensorscheck();
       Serial.println("Obstacle detected! Stopping.");
       break;
     }
@@ -954,11 +1003,11 @@ void maintainDistancefromRightWall() {                                      //Ma
   ThisThread::sleep_for(10ms);  // Non-blocking sleep for
 }
 
-void stopCommand() {
+/*void stopCommand() {
   forceStop = true;
   ThisThread::sleep_for(20ms);
   forceStop = false;
-}
+}*/
 
 void finishGridSpace() {                // Completes a gridspace to allow for accurate positioning
   const float targetDistance = 5.0;     // 5 cm for one grid space
@@ -1041,9 +1090,9 @@ void findRightWall() {  // Funtion to locate and move to wall to follow the righ
   bool rightWallDetected = false;
   int distanceToRightWall = 0;
 
-  Serial.println("Starting findRightWall()...");
+  PrintOut("Find Right Wall", false);
 
-  for (int i = 1; i <= 5; i++) {
+  for (int i = 1; i <= 7; i++) {
     int checkX = (robotX + 1) + i * dx((robotDir + 1) % 4);  // Check in the right direction
     int checkY = (robotY + 1) + i * dy((robotDir + 1) % 4);
 
@@ -1087,7 +1136,7 @@ void findRightWall() {  // Funtion to locate and move to wall to follow the righ
     bool frontWallDetected = false;
     int distanceToFrontWall = 0;
 
-    for (int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 3; i++) {
       int checkX = (robotX + 1) + i * dx(robotDir);  // Check in the front direction
       int checkY = (robotY + 1) + i * dy(robotDir);
 
@@ -1125,7 +1174,7 @@ void findRightWall() {  // Funtion to locate and move to wall to follow the righ
 
         // Check for a wall ahead within 5 grid spaces
         bool wallAheadDetected = false;
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= 7; i++) {
           int checkX = (robotX + 1) + i * dx(robotDir);  // Check in the front direction
           int checkY = (robotY + 1) + i * dy(robotDir);
 
@@ -1139,7 +1188,7 @@ void findRightWall() {  // Funtion to locate and move to wall to follow the righ
 
         // Check for a wall to the right within 5 grid spaces
         bool wallRightDetected = false;
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= 7; i++) {
           int checkX = (robotX + 1) + i * dx((robotDir + 1) % 4);  // Check in the right direction
           int checkY = (robotY + 1) + i * dy((robotDir + 1) % 4);
 
@@ -1160,6 +1209,51 @@ void findRightWall() {  // Funtion to locate and move to wall to follow the righ
   }
 }
 
+bool rightWallLocked = false;  // Flag to indicate if the right wall is found
+
+void findRightWall_test() {      // to test
+    bool rightWallDetected = false;
+    int distanceToRightWall = 0;
+
+    PrintOut("Find Right Wall", false);
+
+    // If the wall is not locked, search for it
+    if (!rightWallLocked) {
+        for (int i = 1; i <= 7; i++) {
+            int checkX = robotX + i * dx((robotDir + 1) % 4);  
+            int checkY = robotY + i * dy((robotDir + 1) % 4);
+
+            if (checkX >= 0 && checkX < mazeWidth && checkY >= 0 && checkY < mazeHeight) {
+                if (mazeMap[checkY][checkX] == 1) {  // Wall detected
+                    rightWallDetected = true;
+                    distanceToRightWall = i;
+                    Serial.print("Right wall detected at ");
+                    Serial.print(distanceToRightWall);
+                    Serial.println(" grid spaces away.");
+                    break;
+                }
+            }
+        }
+    } else {
+        rightWallDetected = true;  // If locked, assume the wall is still there
+    }
+
+    // If a right wall is detected, lock onto it
+    if (rightWallDetected) {
+        rightWallLocked = true;  // Lock the wall so it doesn't search again
+        turnninetyright();
+        ThisThread::sleep_for(50ms);
+        moveForward(distanceToRightWall - 2);
+        alignFront();
+        turnninetyleft();
+    } else {
+        // If no right wall is detected, continue normal behavior
+        moveForward(1);
+        findRightWall();  // Retry if no right wall is found
+    }
+}
+
+
 //----------------------------------------------------------------------------------
 
 
@@ -1178,7 +1272,7 @@ void displayMazeMap() {  // Display the map in serial
   Serial.println("Current Maze Map:");
 
   const int finishCenterX = 15;
-  const int finishCenterY = 40;
+  const int finishCenterY = 10;
 
   for (int y = 0; y < mazeHeight; y++) {
     for (int x = 0; x < mazeWidth; x++) {
@@ -1308,8 +1402,8 @@ void processSensorData(float sensorDistance, int startX, int startY, int dx, int
   // Convert distance to grid cells
   int maxGridSpaces = maxDistanceCm / gridSizeCm;  // Max grid spaces (50 cm = 10 grids)
   int freeSpaces = min(sensorDistance / gridSizeCm, maxGridSpaces);
-  Serial.print("Free spaces");
-  Serial.println(freeSpaces);
+  //Serial.print("Free spaces");
+  //Serial.println(freeSpaces);
   // Mark free spaces
   for (int i = 1; i <= freeSpaces; i++) {  // Start from 1 to skip the robot's position
     int gridX = startX + i * dx;
@@ -1363,7 +1457,7 @@ void checkSensorsAndUpdateMaze() {  // Using processsesnordata it marks walls an
     //Serial.println("Wall detected by F1.");
     processSensorData(distance_F1, F1_startX, F1_startY, forwardDx, forwardDy, true);
   } else {
-    Serial.println("No wall detected by F1.");
+    //Serial.println("No wall detected by F1.");
     processSensorData(distance_F1, F1_startX, F1_startY, forwardDx, forwardDy, false);
   }
 
@@ -1795,21 +1889,21 @@ bool gapOnRight() {
 void decisionMaker() {
   // Define the center of the determined 3x3 grid area
   const int finishCenterX = 15;
-  const int finishCenterY = 40;
+  const int finishCenterY = 10;
 
   while (!(robotX >= finishCenterX - 1 && robotX <= finishCenterX + 1 && robotY >= finishCenterY - 1 && robotY <= finishCenterY + 1)) {
     // Decision-making process with printouts
     if (wallAhead() && gapOnRight()) {
       PrintOutLn("Wall ahead & gap on right -> Turning right.", false);
+      moveForward(1);
+      ThisThread::sleep_for(50ms);
       turnninetyright();
       ThisThread::sleep_for(50ms);
       moveForward(1);
       ThisThread::sleep_for(50ms);
       moveForward(1);
-      ThisThread::sleep_for(50ms);
       findRightWall();
       ThisThread::sleep_for(50ms);
-      maintainDistancefromRightWall();
     } else if (wallAhead() && !gapOnRight()) {
       PrintOutLn("Wall ahead & NO gap on right -> Aligning & turning left.", false);
       alignFront();
@@ -1818,29 +1912,19 @@ void decisionMaker() {
       ThisThread::sleep_for(50ms);
     } else if (!wallAhead() && gapOnRight()) {
       PrintOutLn("No wall ahead & gap on right -> Turning right (following wall).", false);
-      moveForward(2);
+      moveForward(3);
+      PrintOutLn("Out first", false);
       ThisThread::sleep_for(50ms);
       turnninetyright();
       ThisThread::sleep_for(50ms);
       moveForward(6);
-      ThisThread::sleep_for(50ms);
-      if (gapOnRight() == false) {
-        turnninetyright();
-      }
-      moveForward(4);
-
+      PrintOutLn("Out Second", false);
       ThisThread::sleep_for(20ms);
       findRightWall();
       ThisThread::sleep_for(20ms);
-      maintainDistancefromRightWall();
     } else if (!wallAhead() && !gapOnRight()) {
       PrintOutLn("No wall ahead & NO gap on right -> Maintaining distance from right wall.", false);
       maintainDistancefromRightWall();
-    } if (!forceStop) {
-      brake();
-      //finishGridSpace();
-      Serial.println("Obstacle detected! Stopping.");
-      break;
     }
   }
 
@@ -1849,7 +1933,7 @@ void decisionMaker() {
 
 /*void moveToFinish() {
   const int finishCenterX = 15;
-  const int finishCenterY = 40;
+  const int finishCenterY = 10;
 
   PrintOutLn("Robot entered 3x3 grid. Moving to center.", false);
 
@@ -2074,9 +2158,9 @@ void processCommand(char command) {
     alignFront();
   } else if (command >= '1' && command <= '9') {  // If command is a digit (1-9)
     int numCells = command - '0';                 // Convert char to integer
-    Serial.print("Moving forward by ");
-    Serial.print(numCells);
-    Serial.println(" grid spaces.");
+    //Serial.print("Moving forward by ");
+    //Serial.print(numCells);
+    //Serial.println(" grid spaces.");
     moveForward(numCells);
   }
 }
