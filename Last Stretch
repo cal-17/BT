@@ -257,25 +257,14 @@ void checksensors() {
 
 // Command to give print outs of sensor readings
 void checksensorscheck() {
-  Serial.print("Front 1 Sensor Distance: ");
-  PrintOut(String(distance_F1), false);
-  PrintOutLn(" F1 cm", false);
+  PrintOutLn("Front Sensors: ", false);
+  PrintOutLn("F1: " + String(distance_F1) + " |F2: " + String(distance_F2), false);
 
-  Serial.print("Front 2 Sensor Distance: ");
-  PrintOut(String(distance_F2), false);
-  PrintOutLn(" F2 cm", false);
+  PrintOutLn("Right Sensors: ", false);
+  PrintOutLn("R1: " + String(distance_R1) + " |R2: " + String(distance_R2), false);
 
-  Serial.print("Right 1 Sensor Distance: ");
-  PrintOut(String(distance_R1), false);
-  PrintOutLn(" R1 cm", false);
-
-  Serial.print("Right 2 Sensor Distance: ");
-  PrintOut(String(distance_R2), false);
-  PrintOutLn(" R2 cm", false);
-
-  Serial.print("Left Sensor Distance: ");
-  PrintOut(String(distance_L), false);
-  PrintOutLn(" L cm", false);
+  PrintOutLn("Left Sensor: ", false);
+  PrintOutLn("L: " + String(distance_L) + " cm", false);
 }
 //----------------------------------------------------------------------------------
 
@@ -1676,10 +1665,7 @@ void MovementMapping() {
       updateMazeMap();              // Update the maze with the current robot position
       checkSensorsAndUpdateMaze();  // Scan and update maze walls or obstacles
       PrintOutLn("Updated Position:", false);
-      PrintOut("X: ", false);
-      PrintOut(String(robotX), false);
-      PrintOut(" Y: ", false);
-      PrintOutLn(String(robotY), false);
+      PrintOutLn("X: " + String(robotX) + " Y: " + String(robotY), false);
     }
   }
 }
@@ -1779,6 +1765,7 @@ void dijkstra(int startY, int startX, int endY, int endX) {
   }
 }
 
+
 void printMazeWithPath(int endY, int endX) {
   char displayMaze[mazeHeight][mazeWidth];
 
@@ -1840,6 +1827,8 @@ void printMazeWithPath(int endY, int endX) {
     }
     Serial.println();
   }
+  Serial.print("Path size: ");
+  Serial.println(path.size());
   // Print the path in (x,y) format
   Serial.print("Path: ");
   for (size_t i = 0; i < path.size(); i++) {
@@ -1855,6 +1844,29 @@ void printMazeWithPath(int endY, int endX) {
   Serial.println();
 }
 
+vector<pair<int, int>> getPathFromMaze(int startX, int startY) {
+    vector<pair<int, int>> path; // Declare path locally
+
+    for (pair<int, int> at = { startX, startY }; at.first != -1; at = prevNode[at.first][at.second]) {
+        path.push_back(at);
+    }
+
+    reverse(path.begin(), path.end());  // Reverse the path to correct order
+
+    Serial.println("Extracted path AFTER reversing:");
+    for (auto p : path) {
+        Serial.print("(");
+        Serial.print(p.first);
+        Serial.print(",");
+        Serial.print(p.second);
+        Serial.print(") → ");
+    }
+    Serial.println();
+
+    return path; // Return the generated path
+}
+
+
 void convertPathToMoves(vector<pair<int, int>>& path) {  // Converts path to move
   Serial.println("IN FUNC");
 
@@ -1863,8 +1875,7 @@ void convertPathToMoves(vector<pair<int, int>>& path) {  // Converts path to mov
     return;
   }
 
-  Serial.print("Path size: ");
-  Serial.println(path.size());  // Debug print to see path size
+  // Debug print to see path size
 
   int currentDir = robotDir;  //2;  // Assuming starting direction is 2 (adjust if needed)
   size_t i = 1;               // Start from the second node in the path
@@ -1935,7 +1946,7 @@ void convertPathToMoves(vector<pair<int, int>>& path) {  // Converts path to mov
     i++;
   }
 }
-
+/*
 vector<pair<int, int>> extractPath(int startX, int startY) {
   vector<pair<int, int>> path;
   for (pair<int, int> at = { startX, startY }; at.first != -1; at = prevNode[at.first][at.second]) {
@@ -1952,22 +1963,128 @@ vector<pair<int, int>> extractPath(int startX, int startY) {
   return path;
 }
 
+
+
+void returnToStart() {
+
+  Serial.println("Starting return to start...");
+  dijkstra(robotX, robotY, startX, startY);  // Run Dijkstra's to find the path
+
+  char displayMaze[mazeHeight][mazeWidth];
+
+  // Copy maze to displayMaze
+  for (int i = 0; i < mazeHeight; i++) {
+    for (int j = 0; j < mazeWidth; j++) {
+      if (mazeMap[i][j] == 1) {
+        displayMaze[i][j] = 'W';  // Wall
+      } else if (mazeMap[i][j] == -1) {
+        displayMaze[i][j] = '#';  // Unknown space
+      } else {
+        displayMaze[i][j] = '.';  // Open space
+      }
+    }
+  }
+
+
+  // Mark the path
+  vector<pair<int, int>> path;
+  for (pair<int, int> at = { endX, endY }; at.first != -1; at = prevNode[at.first][at.second]) {
+    path.push_back(at);
+  }
+  Serial.println("Extracted path BEFORE reversing:");
+  for (auto p : path) {
+    Serial.print("(");
+    Serial.print(p.first);
+    Serial.print(",");
+    Serial.print(p.second);
+    Serial.print(") → ");
+  }
+  Serial.println();
+
+  reverse(path.begin(), path.end());  // Reverse the path
+
+  Serial.println("Extracted path AFTER reversing:");
+  for (auto p : path) {
+    Serial.print("(");
+    Serial.print(p.first);
+    Serial.print(",");
+    Serial.print(p.second);
+    Serial.print(") → ");
+  }
+  Serial.println();
+
+  for (auto p : path) {
+    displayMaze[p.first][p.second] = 'P';
+  }
+
+  // Mark start and end
+  displayMaze[robotY][robotX] = 'S';  // Start Position
+  displayMaze[startY][startX] = 'E';  // End Position
+
+  // Print the maze
+  Serial.println("Maze with Shortest Path:");
+  for (int i = 0; i < mazeHeight; i++) {
+    for (int j = 0; j < mazeWidth; j++) {
+      Serial.print(displayMaze[i][j]);
+      Serial.print(" ");
+    }
+    Serial.println();
+  }
+  Serial.print("Path size: ");
+  Serial.println(path.size());
+  // Print the path in (x,y) format
+  Serial.print("Path: ");
+  for (size_t i = 0; i < path.size(); i++) {
+    Serial.print("(");
+    Serial.print(path[i].first);
+    Serial.print(",");
+    Serial.print(path[i].second);
+    Serial.print(")");
+    if (i < path.size() - 1) {
+      Serial.print(" → ");
+    }
+  }
+  Serial.println();
+
+
+  // Call the function to move the robot along the path
+  convertPathToMoves(path);
+}*/
+
 void returnToStart() {
   Serial.println("Starting return to start...");
   dijkstra(robotX, robotY, startX, startY);
   //printMazeWithPath(startX, startY);                          // Solve from robot's position to start
-  vector<pair<int, int>> path = extractPath(startX, startY);  // Get the shortest path
+  vector<pair<int, int>> path = getPathFromMaze(startX, startY);  // Get the shortest path
 
+
+  //vector<pair<int, int>> path;
+  for (pair<int, int> at = { startX, startY }; at.first != -1; at = prevNode[at.first][at.second]) {
+    path.push_back(at);
+  }
+
+  // Check if the path is empty (i.e., no valid path was found)
   if (path.empty()) {
     Serial.println("No valid path found to start!");
     return;
   }
 
+  Serial.print("Generated Path Size: ");
+  Serial.println(path.size());
+
+  for (size_t i = 0; i < path.size(); i++) {
+    Serial.print("Step ");
+    Serial.print(i);
+    Serial.print(": (");
+    Serial.print(path[i].first);
+    Serial.print(", ");
+    Serial.print(path[i].second);
+    Serial.println(")");
+  }
+
   Serial.println("Returning to start...");
   convertPathToMoves(path);  // Convert path into robot movement commands
 }
-
-
 
 //----------------------------------------------------------------------------------
 
