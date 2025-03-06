@@ -122,8 +122,8 @@ int robotX = 4;
 int robotY = 40;
 int robotDir = 1;  // 0= Up-North, 1= Right-East, 2= Down-South, 3= Left-West
 
-const int finishCenterX = 15;  //4
-const int finishCenterY = 5;   //10
+const int finishCenterX = 16;  //4
+const int finishCenterY = 11;  //10
 
 // Robots Start and End
 int startX = 4, startY = 40, endX = 2, endY = 2;
@@ -258,10 +258,10 @@ void checksensors() {
 // Command to give print outs of sensor readings
 void checksensorscheck() {
   PrintOutLn("Front Sensors: ", false);
-  PrintOutLn("F1: " + String(distance_F1) + " |F2: " + String(distance_F2), false);
+  PrintOutLn("F1: " + String(distance_F1) + " | F2: " + String(distance_F2), false);
 
   PrintOutLn("Right Sensors: ", false);
-  PrintOutLn("R1: " + String(distance_R1) + " |R2: " + String(distance_R2), false);
+  PrintOutLn("R1: " + String(distance_R1) + " | R2: " + String(distance_R2), false);
 
   PrintOutLn("Left Sensor: ", false);
   PrintOutLn("L: " + String(distance_L) + " cm", false);
@@ -526,7 +526,7 @@ void alignFront() {  //Function to align front making use of trig to calculate t
     Serial.print(distance_F2);
     Serial.println(" cm");
 
-    //PrintOut("Sensor F1 Distance: ", false);
+    PrintOutLn("Align Front", false);
     //PrintOutLn(String(distance_F1), false);
     //PrintOut("Sensor F2 Distance: ", false);
     //PrintOutLn(String(distance_F2), false);
@@ -537,12 +537,12 @@ void alignFront() {  //Function to align front making use of trig to calculate t
       PrintOut("Calculated Angle: ", false);
       PrintOutLn(String(TurnAngle), false);
       if ((TurnAngle > 5) && (TurnAngle < 10)) {
-        TurnRightAngle(TurnAngle);
+        //TurnRightAngle(TurnAngle);
       } else if (TurnAngle >= 10) {
-        PrintOut("Greater than 10 ", false);
+        // PrintOut("Greater than 10 ", false);
         TurnAngle = TurnAngle * 1;
-        PrintOut("Angle: ", false);
-        PrintOutLn(String(TurnAngle), false);
+        // PrintOut("Angle: ", false);
+        // PrintOutLn(String(TurnAngle), false);
         TurnRightAngle(TurnAngle);
       } else {
         brake();
@@ -550,15 +550,15 @@ void alignFront() {  //Function to align front making use of trig to calculate t
       }
     } else if (distance_F1 < distance_F2) {
       volatile float TurnAngle = (atan2(distance_F2 - distance_F1, 9) * (180.0 / PI));
-      PrintOut("Calculated Angle: ", false);
-      PrintOutLn(String(TurnAngle), false);
+      // PrintOut("Calculated Angle: ", false);
+      // PrintOutLn(String(TurnAngle), false);
       if (TurnAngle > 5) {
-        TurnLeftAngle(TurnAngle);
+        // TurnLeftAngle(TurnAngle);
       } else if (TurnAngle >= 10) {
-        PrintOut("Greater than 10 ", false);
+        // PrintOut("Greater than 10 ", false);
         TurnAngle = TurnAngle * 1.07;
-        PrintOut("Angle: ", false);
-        PrintOutLn(String(TurnAngle), false);
+        // PrintOut("Angle: ", false);
+        // PrintOutLn(String(TurnAngle), false);
         TurnLeftAngle(TurnAngle);
       } else {
         brake();
@@ -613,10 +613,7 @@ void TurnLeftAngle(float TurnAngle) {  // Turns Angle into distance
   Serial.print(distance_F2);
   Serial.println(" cm");
 
-  PrintOut("Sensor F1 Distance: ", false);
-  PrintOutLn(String(distance_F1), false);
-  PrintOut("Sensor F2 Distance: ", false);
-  PrintOutLn(String(distance_F2), false);
+  checksensorscheck();
 
   // Stop the motors after reaching the turning target
   reset();
@@ -673,10 +670,7 @@ void TurnRightAngle(float TurnAngle) {  // Turns Angle into distance
   Serial.print(distance_F1);
   Serial.println(" cm");
 
-  PrintOut("Sensor F1 Distance: ", false);
-  PrintOutLn(String(distance_F1), false);
-  PrintOut("Sensor F2 Distance: ", false);
-  PrintOutLn(String(distance_F2), false);
+  checksensorscheck();
 
   // Stop the motors after reaching the turning target
   reset();
@@ -915,7 +909,7 @@ void moveForward(int numCells) {
       PrintOutLn("Obstacle detected", false);
       break;
     }
-    if ((robotX >= finishCenterX - 3 && robotX <= finishCenterX + 3 && robotY >= finishCenterY - 3 && robotY <= finishCenterY + 3)) {
+    if ((robotX >= finishCenterX - 5 && robotX <= finishCenterX + 5 && robotY >= finishCenterY - 3 && robotY <= finishCenterY + 5)) {
       //PrintOutLn("In If Finish", false);
       brake();
       checksensorscheck();
@@ -950,7 +944,7 @@ void maintainDistancefromRightWall() {  //Maintain Right distance from Wall as t
   equalizeMotor();  // Balance the motors before starting control
   TurnCheck = false;
 
-  while (!(robotX >= finishCenterX - 3 && robotX <= finishCenterX + 3 && robotY >= finishCenterY - 3 && robotY <= finishCenterY + 3)) {
+  while (!(robotX >= finishCenterX - 5 && robotX <= finishCenterX + 5 && robotY >= finishCenterY - 3 && robotY <= finishCenterY + 5)) {
     //PrintOut("Sensor R1 Distance: ", false);
     // PrintOutLn(String(distance_R1), false);
     //PrintOut("Sensor R2 Distance: ", false);
@@ -1054,12 +1048,12 @@ void finishGridSpace() {                // Completes a gridspace to allow for ac
   const float remainingdistanceA = distanceA;
   const float remainingdistanceB = distanceB;
 
-  PrintOut("avgDis: ", false);
-  PrintOutLn(String(avgDistance), false);
-  PrintOut("DistanceA: ", false);
-  PrintOutLn(String(distanceA), false);
-  PrintOut("DistanceB: ", false);
-  PrintOutLn(String(distanceB), false);
+  //PrintOut("avgDis: ", false);
+  //PrintOutLn(String(avgDistance), false);
+  //PrintOut("DistanceA: ", false);
+  //PrintOutLn(String(distanceA), false);
+  //PrintOut("DistanceB: ", false);
+  //PrintOutLn(String(distanceB), false);
   Serial.print("Motor A distance: ");
   Serial.print(distanceA * 100);
   Serial.println(" cm");
@@ -1097,8 +1091,8 @@ void finishGridSpace() {                // Completes a gridspace to allow for ac
       Serial.print("Motor B distance: ");
       Serial.print(distanceB * 100);
       Serial.println(" cm");
-      PrintOut("Remaining Distance: ", false);
-      PrintOutLn(String(remainingDistance), false);
+      PrintOutLn("Remaining Dis: " + String(remainingDistance) + "cm", false);
+      //PrintOutLn(String(remainingDistance), false);
     }
   }
   pulseCountDisA = 0;
@@ -1666,6 +1660,17 @@ void MovementMapping() {
       checkSensorsAndUpdateMaze();  // Scan and update maze walls or obstacles
       PrintOutLn("Updated Position:", false);
       PrintOutLn("X: " + String(robotX) + " Y: " + String(robotY), false);
+      PrintOutLn("Robot Direction:", false);
+      if (robotDir == 0) {
+        PrintOutLn("North", false);
+      } else if (robotDir == 1) {
+        PrintOutLn("East", false);
+      } else if (robotDir == 2) {
+        PrintOutLn("South", false);
+      } else if (robotDir == 3) {
+        PrintOutLn("West", false);
+      }
+      //PrintOutLn(String(robotDir), false);
     }
   }
 }
@@ -1765,7 +1770,6 @@ void dijkstra(int startY, int startX, int endY, int endX) {
   }
 }
 
-
 void printMazeWithPath(int endY, int endX) {
   char displayMaze[mazeHeight][mazeWidth];
 
@@ -1801,14 +1805,18 @@ void printMazeWithPath(int endY, int endX) {
   reverse(path.begin(), path.end());  // Reverse the path
 
   Serial.println("Extracted path AFTER reversing:");
+  PrintOutLn("Extracted Path:", false);
   for (auto p : path) {
     Serial.print("(");
     Serial.print(p.first);
     Serial.print(",");
     Serial.print(p.second);
     Serial.print(") → ");
+    PrintOutLn("(" + String(p.first) + "," + String(p.second) + ")", false);
+    PrintOutLn("↓", false);
   }
   Serial.println();
+  PrintOutLn("", false);  // Optional: Adds a blank line after printing all coordinates
 
   for (auto p : path) {
     displayMaze[p.first][p.second] = 'P';
@@ -1827,8 +1835,6 @@ void printMazeWithPath(int endY, int endX) {
     }
     Serial.println();
   }
-  Serial.print("Path size: ");
-  Serial.println(path.size());
   // Print the path in (x,y) format
   Serial.print("Path: ");
   for (size_t i = 0; i < path.size(); i++) {
@@ -1842,28 +1848,8 @@ void printMazeWithPath(int endY, int endX) {
     }
   }
   Serial.println();
-}
-
-vector<pair<int, int>> getPathFromMaze(int startX, int startY) {
-    vector<pair<int, int>> path; // Declare path locally
-
-    for (pair<int, int> at = { startX, startY }; at.first != -1; at = prevNode[at.first][at.second]) {
-        path.push_back(at);
-    }
-
-    reverse(path.begin(), path.end());  // Reverse the path to correct order
-
-    Serial.println("Extracted path AFTER reversing:");
-    for (auto p : path) {
-        Serial.print("(");
-        Serial.print(p.first);
-        Serial.print(",");
-        Serial.print(p.second);
-        Serial.print(") → ");
-    }
-    Serial.println();
-
-    return path; // Return the generated path
+  Serial.print("Path size: ");
+  Serial.println(path.size());  // Debug print to see path size
 }
 
 
@@ -1875,7 +1861,8 @@ void convertPathToMoves(vector<pair<int, int>>& path) {  // Converts path to mov
     return;
   }
 
-  // Debug print to see path size
+  Serial.print("Path size: ");
+  Serial.println(path.size());  // Debug print to see path size
 
   int currentDir = robotDir;  //2;  // Assuming starting direction is 2 (adjust if needed)
   size_t i = 1;               // Start from the second node in the path
@@ -1946,7 +1933,7 @@ void convertPathToMoves(vector<pair<int, int>>& path) {  // Converts path to mov
     i++;
   }
 }
-/*
+
 vector<pair<int, int>> extractPath(int startX, int startY) {
   vector<pair<int, int>> path;
   for (pair<int, int> at = { startX, startY }; at.first != -1; at = prevNode[at.first][at.second]) {
@@ -1963,128 +1950,43 @@ vector<pair<int, int>> extractPath(int startX, int startY) {
   return path;
 }
 
-
-
-void returnToStart() {
-
-  Serial.println("Starting return to start...");
-  dijkstra(robotX, robotY, startX, startY);  // Run Dijkstra's to find the path
-
-  char displayMaze[mazeHeight][mazeWidth];
-
-  // Copy maze to displayMaze
-  for (int i = 0; i < mazeHeight; i++) {
-    for (int j = 0; j < mazeWidth; j++) {
-      if (mazeMap[i][j] == 1) {
-        displayMaze[i][j] = 'W';  // Wall
-      } else if (mazeMap[i][j] == -1) {
-        displayMaze[i][j] = '#';  // Unknown space
-      } else {
-        displayMaze[i][j] = '.';  // Open space
-      }
-    }
-  }
-
-
-  // Mark the path
-  vector<pair<int, int>> path;
-  for (pair<int, int> at = { endX, endY }; at.first != -1; at = prevNode[at.first][at.second]) {
-    path.push_back(at);
-  }
-  Serial.println("Extracted path BEFORE reversing:");
-  for (auto p : path) {
-    Serial.print("(");
-    Serial.print(p.first);
-    Serial.print(",");
-    Serial.print(p.second);
-    Serial.print(") → ");
-  }
-  Serial.println();
-
-  reverse(path.begin(), path.end());  // Reverse the path
-
-  Serial.println("Extracted path AFTER reversing:");
-  for (auto p : path) {
-    Serial.print("(");
-    Serial.print(p.first);
-    Serial.print(",");
-    Serial.print(p.second);
-    Serial.print(") → ");
-  }
-  Serial.println();
-
-  for (auto p : path) {
-    displayMaze[p.first][p.second] = 'P';
-  }
-
-  // Mark start and end
-  displayMaze[robotY][robotX] = 'S';  // Start Position
-  displayMaze[startY][startX] = 'E';  // End Position
-
-  // Print the maze
-  Serial.println("Maze with Shortest Path:");
-  for (int i = 0; i < mazeHeight; i++) {
-    for (int j = 0; j < mazeWidth; j++) {
-      Serial.print(displayMaze[i][j]);
-      Serial.print(" ");
-    }
-    Serial.println();
-  }
-  Serial.print("Path size: ");
-  Serial.println(path.size());
-  // Print the path in (x,y) format
-  Serial.print("Path: ");
-  for (size_t i = 0; i < path.size(); i++) {
-    Serial.print("(");
-    Serial.print(path[i].first);
-    Serial.print(",");
-    Serial.print(path[i].second);
-    Serial.print(")");
-    if (i < path.size() - 1) {
-      Serial.print(" → ");
-    }
-  }
-  Serial.println();
-
-
-  // Call the function to move the robot along the path
-  convertPathToMoves(path);
-}*/
-
-void returnToStart() {
+/*void returnToStart() {
   Serial.println("Starting return to start...");
   dijkstra(robotX, robotY, startX, startY);
   //printMazeWithPath(startX, startY);                          // Solve from robot's position to start
-  vector<pair<int, int>> path = getPathFromMaze(startX, startY);  // Get the shortest path
+  vector<pair<int, int>> path = extractPath(startX, startY);  // Get the shortest path
 
-
-  //vector<pair<int, int>> path;
-  for (pair<int, int> at = { startX, startY }; at.first != -1; at = prevNode[at.first][at.second]) {
-    path.push_back(at);
-  }
-
-  // Check if the path is empty (i.e., no valid path was found)
   if (path.empty()) {
     Serial.println("No valid path found to start!");
     return;
   }
 
-  Serial.print("Generated Path Size: ");
+  Serial.println("Returning to start...");
+  convertPathToMoves(path);  // Convert path into robot movement commands
+}*/
+
+void returnToStart() {
+  Serial.println("Starting return to start...");
+
+  // Manually define a longer path for testing
+  vector<pair<int, int>> path = {
+    { robotX, robotY }, { robotX, robotY + 1 }, { robotX, robotY + 2 }, { robotX, robotY + 3 }, { robotX, robotY + 4 }, { robotX + 1, robotY + 4 }, { robotX + 2, robotY + 4 }, { robotX + 3, robotY + 4 }, { startX, startY }
+  };
+
+  Serial.print("Manually set path size: ");
   Serial.println(path.size());
 
-  for (size_t i = 0; i < path.size(); i++) {
-    Serial.print("Step ");
-    Serial.print(i);
-    Serial.print(": (");
-    Serial.print(path[i].first);
-    Serial.print(", ");
-    Serial.print(path[i].second);
-    Serial.println(")");
+  if (path.empty()) {
+    Serial.println("No valid path found to start!");
+    return;
   }
 
   Serial.println("Returning to start...");
   convertPathToMoves(path);  // Convert path into robot movement commands
 }
+
+
+
 
 //----------------------------------------------------------------------------------
 
@@ -2141,7 +2043,7 @@ void decisionMaker() {
   displayMazeMapOverBLE();
   ThisThread::sleep_for(200ms);
 
-  while (!(robotX >= finishCenterX - 3 && robotX <= finishCenterX + 3 && robotY >= finishCenterY - 3 && robotY <= finishCenterY + 3)) {  // (finishCenterX - 1 < robotX && finishCenterX + 1 > robotX && finishCenterY - 1 < robotY && finishCenterY + 1 > robotY)
+  while (!(robotX >= finishCenterX - 5 && robotX <= finishCenterX + 5 && robotY >= finishCenterY - 3 && robotY <= finishCenterY + 5)) {
     //PrintOutLn("Traversing Maze", false);
     dontAlign = false;
     if (wallAhead() && gapOnRight()) {
@@ -2387,6 +2289,7 @@ void processCommand(char command) {
   } else if (command == 'm') {
     dijkstra(robotX, robotY, startX, startY);
     printMazeWithPath(startX, startY);
+    //displaySolvedMazeOverBLE(startX, startY);
   } else if (command == 'l') {
     turnninetyleft();
   } else if (command == 'j') {
